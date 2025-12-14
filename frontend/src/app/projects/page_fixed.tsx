@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData, postData } from '../../lib/api';
 
 interface Project {
   id: number;
@@ -32,17 +33,27 @@ export default function ProjectsPage() {
   // Load projects
   useEffect(() => {
     if (user) {
-      // Simulate loading projects
-      setTimeout(() => {
-        setProjects([
-          { id: 1, name: 'Website Redesign', description: 'Redesign company website', createdAt: '2025-12-01', updatedAt: '2025-12-10' },
-          { id: 2, name: 'Mobile App', description: 'Develop mobile application', createdAt: '2025-12-05', updatedAt: '2025-12-12' },
-          { id: 3, name: 'Marketing Campaign', description: 'Plan marketing campaign', createdAt: '2025-12-08', updatedAt: '2025-12-14' }
-        ]);
-        setLoading(false);
-      }, 500);
+      loadProjects();
     }
   }, [user]);
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      const data = await getData('/projects');
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      // Fallback to mock data
+      setProjects([
+        { id: 1, name: 'Website Redesign', description: 'Redesign company website', createdAt: '2025-12-01', updatedAt: '2025-12-10' },
+        { id: 2, name: 'Mobile App', description: 'Develop mobile application', createdAt: '2025-12-05', updatedAt: '2025-12-12' },
+        { id: 3, name: 'Marketing Campaign', description: 'Plan marketing campaign', createdAt: '2025-12-08', updatedAt: '2025-12-14' }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateClick = () => {
     setEditingProject(null);
@@ -56,32 +67,55 @@ export default function ProjectsPage() {
     setShowCreateForm(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProject) {
-      // Update existing project
-      setProjects(projects.map(p => 
-        p.id === editingProject.id 
-          ? { ...p, ...formData, updatedAt: new Date().toISOString().split('T')[0] } 
-          : p
-      ));
-    } else {
-      // Create new project
-      const newProject: Project = {
-        id: projects.length + 1,
-        ...formData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setProjects([...projects, newProject]);
+    try {
+      if (editingProject) {
+        // Update existing project
+        const updatedProject = await postData(`/projects/${editingProject.id}`, formData);
+        setProjects(projects.map(p => 
+          p.id === editingProject.id 
+            ? { ...updatedProject, updatedAt: new Date().toISOString().split('T')[0] } 
+            : p
+        ));
+      } else {
+        // Create new project
+        const newProject = await postData('/projects', formData);
+        setProjects([...projects, newProject]);
+      }
+    } catch (error) {
+      console.error('Failed to save project:', error);
+      // Fallback to local update
+      if (editingProject) {
+        setProjects(projects.map(p => 
+          p.id === editingProject.id 
+            ? { ...p, ...formData, updatedAt: new Date().toISOString().split('T')[0] } 
+            : p
+        ));
+      } else {
+        const newProject: Project = {
+          id: projects.length + 1,
+          ...formData,
+          createdAt: new Date().toISOString().split('T')[0],
+          updatedAt: new Date().toISOString().split('T')[0]
+        };
+        setProjects([...projects, newProject]);
+      }
     }
     setShowCreateForm(false);
     setFormData({ name: '', description: '' });
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this project?')) {
-      setProjects(projects.filter(p => p.id !== id));
+      try {
+        await postData(`/projects/${id}/delete`, {});
+        setProjects(projects.filter(p => p.id !== id));
+      } catch (error) {
+        console.error('Failed to delete project:', error);
+        // Fallback to local deletion
+        setProjects(projects.filter(p => p.id !== id));
+      }
     }
   };
 

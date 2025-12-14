@@ -30,6 +30,9 @@ model User {
   organizationId String
   tasksAssigned  Task[]       @relation("UserAssignee")
   invitations    Invitation[] @relation("UserInvitations")
+  comments       Comment[]
+  files          File[]
+  activityLogs   ActivityLog[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
@@ -41,6 +44,8 @@ model Project {
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
   tasks          Task[]
+  files          File[]
+  activityLogs   ActivityLog[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -56,6 +61,10 @@ model Task {
   projectId   String
   assignee    User?      @relation("UserAssignee", fields: [assigneeId], references: [id])
   assigneeId  String?
+  subtasks    Subtask[]
+  comments    Comment[]
+  files       File[]
+  activityLogs ActivityLog[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -85,4 +94,55 @@ model Invitation {
   invitedById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model Subtask {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus @default(OPEN)
+  task        Task       @relation(fields: [taskId], references: [id])
+  taskId      String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  task      Task     @relation(fields: [taskId], references: [id])
+  taskId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model File {
+  id          String       @id @default(uuid())
+  name        String
+  path        String
+  size        Int
+  mimeType    String
+  uploadedBy  User         @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  project     Project?     @relation(fields: [projectId], references: [id])
+  projectId   String?
+  task        Task?        @relation(fields: [taskId], references: [id])
+  taskId      String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  action      String
+  description String?
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  project     Project? @relation(fields: [projectId], references: [id])
+  projectId   String?
+  task        Task?    @relation(fields: [taskId], references: [id])
+  taskId      String?
+  createdAt   DateTime @default(now())
 }

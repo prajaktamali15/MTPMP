@@ -281,6 +281,53 @@ export default function DashboardPage() {
         </div>
       </div>
       
+      {/* Additional Quick Links */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="border rounded-lg p-4 bg-white shadow">
+          <h3 className="font-semibold text-lg mb-2">Files</h3>
+          <p className="text-sm text-gray-600 mb-3">Manage project files</p>
+          <button 
+            onClick={() => router.push('/files')}
+            className="bg-indigo-600 text-white px-3 py-1 rounded text-sm"
+          >
+            View Files
+          </button>
+        </div>
+        
+        <div className="border rounded-lg p-4 bg-white shadow">
+          <h3 className="font-semibold text-lg mb-2">Comments</h3>
+          <p className="text-sm text-gray-600 mb-3">View all comments</p>
+          <button 
+            onClick={() => router.push('/comments')}
+            className="bg-teal-600 text-white px-3 py-1 rounded text-sm"
+          >
+            View Comments
+          </button>
+        </div>
+        
+        <div className="border rounded-lg p-4 bg-white shadow">
+          <h3 className="font-semibold text-lg mb-2">Subtasks</h3>
+          <p className="text-sm text-gray-600 mb-3">Manage subtasks</p>
+          <button 
+            onClick={() => router.push('/subtasks')}
+            className="bg-amber-600 text-white px-3 py-1 rounded text-sm"
+          >
+            View Subtasks
+          </button>
+        </div>
+        
+        <div className="border rounded-lg p-4 bg-white shadow">
+          <h3 className="font-semibold text-lg mb-2">Search</h3>
+          <p className="text-sm text-gray-600 mb-3">Find anything</p>
+          <button 
+            onClick={() => router.push('/search/search')}
+            className="bg-gray-600 text-white px-3 py-1 rounded text-sm"
+          >
+            Search
+          </button>
+        </div>
+      </div>
+      
       {/* Role-based Actions */}
       <div className="mt-8 border rounded-lg p-4">
         <h2 className="text-xl font-semibold mb-4">Team Management</h2>
@@ -312,13 +359,13 @@ export default function DashboardPage() {
           )}
           
           <div className="border rounded p-3">
-            <h3 className="font-medium mb-2">Search</h3>
-            <p className="text-sm text-gray-600 mb-3">Find projects, tasks, and members</p>
+            <h3 className="font-medium mb-2">Settings</h3>
+            <p className="text-sm text-gray-600 mb-3">Organization configuration</p>
             <button 
-              onClick={() => router.push('/search/search')}
+              onClick={() => router.push('/org/settings')}
               className="bg-gray-600 text-white px-3 py-1 rounded text-sm"
             >
-              Search
+              Org Settings
             </button>
           </div>
         </div>

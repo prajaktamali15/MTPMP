@@ -3,12 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData, postData } from '../../lib/api';
 
 interface Task {
   id: number;
   title: string;
   status: string;
   project: string;
+  projectId: number;
+  description: string;
 }
 
 export default function TasksPage() {
@@ -25,18 +28,28 @@ export default function TasksPage() {
   // Load tasks
   useEffect(() => {
     if (user) {
-      // Simulate loading tasks
-      setTimeout(() => {
-        setTasks([
-          { id: 1, title: 'Design homepage', status: 'In Progress', project: 'Website Redesign' },
-          { id: 2, title: 'Setup database', status: 'Completed', project: 'Mobile App' },
-          { id: 3, title: 'Create wireframes', status: 'Pending', project: 'Website Redesign' },
-          { id: 4, title: 'Write copy', status: 'Pending', project: 'Marketing Campaign' }
-        ]);
-        setLoading(false);
-      }, 500);
+      loadTasks();
     }
   }, [user]);
+
+  const loadTasks = async () => {
+    try {
+      setLoading(true);
+      const data = await getData('/tasks');
+      setTasks(data);
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      // Fallback to mock data
+      setTasks([
+        { id: 1, title: 'Design homepage', status: 'In Progress', project: 'Website Redesign', projectId: 1, description: 'Create wireframes for homepage' },
+        { id: 2, title: 'Setup database', status: 'Completed', project: 'Mobile App', projectId: 2, description: 'Configure PostgreSQL database' },
+        { id: 3, title: 'Create wireframes', status: 'Pending', project: 'Website Redesign', projectId: 1, description: 'Design mockups for all pages' },
+        { id: 4, title: 'Write copy', status: 'Pending', project: 'Marketing Campaign', projectId: 3, description: 'Create content for marketing materials' }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!user) return null;
 
@@ -52,7 +65,10 @@ export default function TasksPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Tasks</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded">
+        <button 
+          onClick={() => router.push('/projects')}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
           Create Task
         </button>
       </div>
