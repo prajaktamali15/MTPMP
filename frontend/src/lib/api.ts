@@ -12,6 +12,24 @@ const mockTasks = [
   { id: 4, title: 'Write copy', status: 'Pending', projectId: 3, description: 'Create content for marketing materials', createdAt: '2025-12-10' }
 ];
 
+const mockSubtasks = [
+  { id: 1, title: 'Create wireframes', status: 'Completed', taskId: 1, createdAt: '2025-12-01' },
+  { id: 2, title: 'Design color palette', status: 'In Progress', taskId: 1, createdAt: '2025-12-02' },
+  { id: 3, title: 'Select fonts', status: 'Pending', taskId: 1, createdAt: '2025-12-03' },
+  { id: 4, title: 'Setup tables', status: 'Completed', taskId: 2, createdAt: '2025-12-05' }
+];
+
+const mockComments = [
+  { id: 1, content: 'This task looks good so far. I\'ve completed the initial design.', taskId: 1, author: 'John Doe', createdAt: '2025-12-01T10:30:00Z' },
+  { id: 2, content: 'Thanks for the update. Can you also add the mobile mockups?', taskId: 1, author: 'Jane Smith', createdAt: '2025-12-01T14:15:00Z' },
+  { id: 3, content: 'Sure, I\'ll add those shortly.', taskId: 1, author: 'John Doe', createdAt: '2025-12-01T15:45:00Z' }
+];
+
+const mockFiles = [
+  { id: 1, name: 'design_mockup.pdf', size: '2.4 MB', type: 'PDF', uploadedBy: 'John Doe', uploadedAt: '2025-12-01T10:30:00Z', taskId: 1 },
+  { id: 2, name: 'database_schema.png', size: '1.1 MB', type: 'Image', uploadedBy: 'Jane Smith', uploadedAt: '2025-12-02T09:15:00Z', projectId: 2 }
+];
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 // Helper function to get organization ID from localStorage
@@ -170,6 +188,50 @@ async function mockPostData(endpoint: string, data: any) {
       return mockTasks[index];
     }
     throw new Error('Task not found');
+  } else if (endpoint === '/subtasks') {
+    // Create new subtask
+    const newSubtask = {
+      id: mockSubtasks.length + 1,
+      ...data,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    mockSubtasks.push(newSubtask);
+    return newSubtask;
+  } else if (endpoint.startsWith('/subtasks/') && endpoint.endsWith('/delete')) {
+    // Delete subtask
+    const subtaskId = parseInt(endpoint.split('/')[2]);
+    const index = mockSubtasks.findIndex(s => s.id === subtaskId);
+    if (index !== -1) {
+      mockSubtasks.splice(index, 1);
+    }
+    return { success: true };
+  } else if (endpoint.startsWith('/subtasks/')) {
+    // Update subtask
+    const subtaskId = parseInt(endpoint.split('/')[2]);
+    const index = mockSubtasks.findIndex(s => s.id === subtaskId);
+    if (index !== -1) {
+      mockSubtasks[index] = { ...mockSubtasks[index], ...data };
+      return mockSubtasks[index];
+    }
+    throw new Error('Subtask not found');
+  } else if (endpoint === '/comments') {
+    // Create new comment
+    const newComment = {
+      id: mockComments.length + 1,
+      ...data,
+      createdAt: new Date().toISOString()
+    };
+    mockComments.push(newComment);
+    return newComment;
+  } else if (endpoint.startsWith('/files')) {
+    // Simulate file upload
+    const newFile = {
+      id: mockFiles.length + 1,
+      ...data,
+      uploadedAt: new Date().toISOString()
+    };
+    mockFiles.push(newFile);
+    return newFile;
   } else {
     // Return success for other endpoints
     return { success: true, ...data };
@@ -206,6 +268,36 @@ async function mockGetData(endpoint: string) {
       return task;
     }
     throw new Error('Task not found');
+  } else if (endpoint === '/subtasks') {
+    // Return all subtasks
+    return mockSubtasks;
+  } else if (endpoint.startsWith('/subtasks/') && endpoint.includes('/task/')) {
+    // Return subtasks for a specific task
+    const taskId = parseInt(endpoint.split('/')[3]);
+    return mockSubtasks.filter(s => s.taskId === taskId);
+  } else if (endpoint.startsWith('/subtasks/')) {
+    // Return specific subtask
+    const subtaskId = parseInt(endpoint.split('/')[2]);
+    const subtask = mockSubtasks.find(s => s.id === subtaskId);
+    if (subtask) {
+      return subtask;
+    }
+    throw new Error('Subtask not found');
+  } else if (endpoint.startsWith('/comments/task/')) {
+    // Return comments for a specific task
+    const taskId = parseInt(endpoint.split('/')[3]);
+    return mockComments.filter(c => c.taskId === taskId);
+  } else if (endpoint === '/files') {
+    // Return all files
+    return mockFiles;
+  } else if (endpoint.startsWith('/files/task/')) {
+    // Return files for a specific task
+    const taskId = parseInt(endpoint.split('/')[3]);
+    return mockFiles.filter(f => f.taskId === taskId);
+  } else if (endpoint.startsWith('/files/project/')) {
+    // Return files for a specific project
+    const projectId = parseInt(endpoint.split('/')[3]);
+    return mockFiles.filter(f => f.projectId === projectId);
   } else {
     // Return empty array for other endpoints
     return [];
