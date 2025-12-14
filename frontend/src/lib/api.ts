@@ -30,6 +30,13 @@ const mockFiles = [
   { id: 2, name: 'database_schema.png', size: '1.1 MB', type: 'Image', uploadedBy: 'Jane Smith', uploadedAt: '2025-12-02T09:15:00Z', projectId: 2 }
 ];
 
+const mockActivityLogs = [
+  { id: 1, action: 'Created Task', description: 'Created new task "Design homepage"', projectId: 1, taskId: 1, userId: 1, createdAt: '2025-12-01T10:00:00Z' },
+  { id: 2, action: 'Updated Task', description: 'Updated task status to "In Progress"', projectId: 1, taskId: 1, userId: 2, createdAt: '2025-12-01T11:30:00Z' },
+  { id: 3, action: 'Added Comment', description: 'Added comment to task', projectId: 1, taskId: 1, userId: 1, createdAt: '2025-12-01T10:30:00Z' },
+  { id: 4, action: 'Uploaded File', description: 'Uploaded design_mockup.pdf', projectId: 1, taskId: 1, userId: 1, createdAt: '2025-12-01T10:30:00Z' }
+];
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 // Helper function to get organization ID from localStorage
@@ -232,6 +239,15 @@ async function mockPostData(endpoint: string, data: any) {
     };
     mockFiles.push(newFile);
     return newFile;
+  } else if (endpoint === '/activity-logs') {
+    // Create new activity log
+    const newActivityLog = {
+      id: mockActivityLogs.length + 1,
+      ...data,
+      createdAt: new Date().toISOString()
+    };
+    mockActivityLogs.push(newActivityLog);
+    return newActivityLog;
   } else {
     // Return success for other endpoints
     return { success: true, ...data };
@@ -298,6 +314,17 @@ async function mockGetData(endpoint: string) {
     // Return files for a specific project
     const projectId = parseInt(endpoint.split('/')[3]);
     return mockFiles.filter(f => f.projectId === projectId);
+  } else if (endpoint === '/activity-logs') {
+    // Return all activity logs
+    return mockActivityLogs;
+  } else if (endpoint.startsWith('/activity-logs/project/')) {
+    // Return activity logs for a specific project
+    const projectId = parseInt(endpoint.split('/')[3]);
+    return mockActivityLogs.filter(a => a.projectId === projectId);
+  } else if (endpoint.startsWith('/activity-logs/task/')) {
+    // Return activity logs for a specific task
+    const taskId = parseInt(endpoint.split('/')[3]);
+    return mockActivityLogs.filter(a => a.taskId === taskId);
   } else {
     // Return empty array for other endpoints
     return [];

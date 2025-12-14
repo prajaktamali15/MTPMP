@@ -1,71 +1,74 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { getData, postData } from '@/lib/api';
 
 interface Subtask {
   id: number;
   title: string;
   status: string;
   taskId: number;
+  createdAt: string;
 }
 
 export default function SubtasksPage() {
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newSubtask, setNewSubtask] = useState({ title: '', taskId: '' });
   const { user } = useAuth();
   const router = useRouter();
-  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  // Redirect if not logged in
   useEffect(() => {
-    if (!user) router.push('/auth/login');
-  }, [user]);
-
-  // Load subtasks
-  useEffect(() => {
-    if (user) {
-      // Simulate loading subtasks
-      setTimeout(() => {
-        setSubtasks([
-          { id: 1, title: 'Create wireframes', status: 'Completed', taskId: 1 },
-          { id: 2, title: 'Design color palette', status: 'In Progress', taskId: 1 },
-          { id: 3, title: 'Select fonts', status: 'Pending', taskId: 1 }
-        ]);
-        setLoading(false);
-      }, 500);
+    if (!user) {
+      router.push('/auth/login');
+      return;
     }
-  }, [user]);
 
-  const handleAddSubtask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newSubtaskTitle.trim() === '') return;
-    
-    const subtask: Subtask = {
-      id: subtasks.length + 1,
-      title: newSubtaskTitle,
-      status: 'Pending',
-      taskId: 1
-    };
-    
-    setSubtasks([...subtasks, subtask]);
-    setNewSubtaskTitle('');
-  };
-
-  const handleToggleStatus = (id: number) => {
-    setSubtasks(subtasks.map(subtask => {
-      if (subtask.id === id) {
-        const newStatus = subtask.status === 'Completed' ? 'Pending' : 'Completed';
-        return { ...subtask, status: newStatus };
+    const loadSubtasks = async () => {
+      try {
+        setLoading(true);
+        const data = await getData('/subtasks');
+        setSubtasks(data);
+      } catch (error) {
+        console.error('Failed to load subtasks:', error);
+        // Fallback to mock data
+        setSubtasks([
+          { id: 1, title: 'Create wireframes', status: 'Completed', taskId: 1, createdAt: '2025-12-01' },
+          { id: 2, title: 'Design color palette', status: 'In Progress', taskId: 1, createdAt: '2025-12-02' },
+          { id: 3, title: 'Select fonts', status: 'Pending', taskId: 1, createdAt: '2025-12-03' },
+          { id: 4, title: 'Setup tables', status: 'Completed', taskId: 2, createdAt: '2025-12-05' }
+        ]);
+      } finally {
+        setLoading(false);
       }
-      return subtask;
-    }));
-  };
+    };
 
-  const handleDeleteSubtask = (id: number) => {
-    if (confirm('Are you sure you want to delete this subtask?')) {
-      setSubtasks(subtasks.filter(subtask => subtask.id !== id));
+    loadSubtasks();
+  }, [user, router]);
+
+  const handleCreateSubtask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubtask.title || !newSubtask.taskId) return;
+
+    try {
+      const subtaskData = {
+        title: newSubtask.title,
+        taskId: parseInt(newSubtask.taskId),
+        status: 'Pending'
+      };
+
+      const createdSubtask = await postData('/subtasks', subtaskData);
+      
+      // Add to local state
+      setSubtasks([...subtasks, createdSubtask]);
+      
+      // Reset form
+      setNewSubtask({ title: '', taskId: '' });
+    } catch (error) {
+      console.error('Failed to create subtask:', error);
+      alert('Failed to create subtask');
     }
   };
 
@@ -80,74 +83,110 @@ export default function SubtasksPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Subtasks</h1>
         <button 
-          onClick={() => router.push('/tasks/1')}
+          onClick={() => router.push('/dashboard')}
           className="bg-gray-600 text-white px-4 py-2 rounded"
         >
-          Back to Task
+          Back to Dashboard
         </button>
       </div>
       
+      {/* Create Subtask Form */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Add a Subtask</h2>
-        <form onSubmit={handleAddSubtask} className="flex gap-2">
-          <input
-            type="text"
-            value={newSubtaskTitle}
-            onChange={(e) => setNewSubtaskTitle(e.target.value)}
-            className="flex-grow border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter subtask title..."
-            required
-          />
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            Add
-          </button>
+        <h2 className="text-xl font-semibold mb-4">Create New Subtask</h2>
+        <form onSubmit={handleCreateSubtask} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+              Title
+            </label>
+            <input
+              type="text"
+              id="title"
+              value={newSubtask.title}
+              onChange={(e) => setNewSubtask({...newSubtask, title: e.target.value})}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter subtask title"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="taskId" className="block text-sm font-medium text-gray-700 mb-1">
+              Task ID
+            </label>
+            <input
+              type="number"
+              id="taskId"
+              value={newSubtask.taskId}
+              onChange={(e) => setNewSubtask({...newSubtask, taskId: e.target.value})}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter task ID"
+              required
+            />
+          </div>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Create Subtask
+            </button>
+          </div>
         </form>
       </div>
       
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Subtasks ({subtasks.length})</h2>
-        {subtasks.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No subtasks yet. Add one above!</p>
-        ) : (
-          <div className="space-y-3">
+      {/* Subtasks List */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ID
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Title
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Task ID
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Created At
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
             {subtasks.map((subtask) => (
-              <div key={subtask.id} className="flex items-center justify-between p-3 border rounded">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={subtask.status === 'Completed'}
-                    onChange={() => handleToggleStatus(subtask.id)}
-                    className="h-5 w-5 text-blue-600 rounded"
-                  />
-                  <span className={`ml-3 ${subtask.status === 'Completed' ? 'line-through text-gray-500' : ''}`}>
-                    {subtask.title}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    subtask.status === 'Completed' ? 'bg-green-200 text-green-800' :
-                    subtask.status === 'In Progress' ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-800'
+              <tr key={subtask.id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {subtask.id}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-gray-900">{subtask.title}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                    subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
                   }`}>
                     {subtask.status}
                   </span>
-                  <button
-                    onClick={() => handleDeleteSubtask(subtask.id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {subtask.taskId}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {subtask.createdAt}
+                </td>
+              </tr>
             ))}
-          </div>
-        )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
