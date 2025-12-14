@@ -32,20 +32,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // Handle tokens from Google OAuth redirect (optional)
-  useEffect(() => {
-    const access = searchParams?.get('access_token');
-    const refresh = searchParams?.get('refresh_token');
-    if (access && refresh) {
-      login({ access_token: access, refresh_token: refresh });
-      // Remove query params after login
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('access_token');
-      newUrl.searchParams.delete('refresh_token');
-      window.history.replaceState({}, document.title, newUrl.toString());
-    }
-  }, [searchParams]);
-
   const login = (tokens: { access_token: string; refresh_token: string }) => {
     localStorage.setItem('access_token', tokens.access_token);
     localStorage.setItem('refresh_token', tokens.refresh_token);

@@ -26,10 +26,13 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
     try {
-      // Redirect directly to the backend Google OAuth endpoint
-      window.location.href = 'http://localhost:3002/auth/google';
+      // Only redirect in the browser
+      if (typeof window !== 'undefined') {
+        // Redirect directly to the backend Google OAuth endpoint
+        window.location.href = 'http://localhost:3002/auth/google';
+      }
     } catch (err) {
       setError('Google login is not available');
     }

@@ -1,6 +1,6 @@
 import './globals.css'; // Tailwind and global styles
 import { AuthProvider } from '@/context/AuthContext';
-import Link from 'next/link';
+import Header from '@/components/Header';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -13,22 +13,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="flex flex-col min-h-screen">
         <AuthProvider>
-          {/* Header */}
-          <header className="bg-blue-600 text-white p-4 flex justify-between items-center">
-            <h1 className="text-xl font-bold">Multi-Tenant PM</h1>
-            <nav className="space-x-4">
-              <Link href="/" className="hover:underline">
-                Home
-              </Link>
-              <Link href="/auth/login" className="hover:underline">
-                Login
-              </Link>
-              <Link href="/auth/register" className="hover:underline">
-                Register
-              </Link>
-            </nav>
-          </header>
-
+          <Header />
+          
           {/* Main Content */}
           <main className="flex-1">{children}</main>
 

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function CallbackPage() {
   const router = useRouter();
-  const { loginWithToken } = useAuth();
+  const { login } = useAuth();
 
   useEffect(() => {
     // Get tokens from URL parameters
@@ -15,15 +15,13 @@ export default function CallbackPage() {
     const refreshToken = urlParams.get("refresh_token");
 
     if (accessToken && refreshToken) {
-      // Store tokens and redirect to dashboard
-      localStorage.setItem("access_token", accessToken);
-      localStorage.setItem("refresh_token", refreshToken);
-      router.push("/dashboard");
+      // Use the login function from AuthContext to store tokens
+      login({ access_token: accessToken, refresh_token: refreshToken });
     } else {
       // If no tokens, redirect to login
       router.push("/auth/login");
     }
-  }, [router, loginWithToken]);
+  }, [router, login]);
 
   return <p>Logging you in...</p>;
 }
