@@ -10,6 +10,7 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrgGuard } from '../guards/org.guard';
 import { AuthGuard } from '@nestjs/passport';

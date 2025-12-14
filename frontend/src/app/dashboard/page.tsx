@@ -262,7 +262,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Recent Activity</h2>
             <button 
-              onClick={() => router.push('/activity')}
+              onClick={() => router.push('/activity/logs')}
               className="text-gray-600 hover:text-gray-800 text-sm"
             >
               View All

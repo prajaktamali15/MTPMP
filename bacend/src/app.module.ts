@@ -8,10 +8,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { GuardsModule } from './guards/guards.module';
-import { SubtasksModule } from './subtasks/subtasks.module';
-import { CommentsModule } from './comments/comments.module';
-import { FilesModule } from './files/files.module';
-import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { orgMiddleware } from './common/middleware/org.middleware';
 
 @Module({
@@ -26,10 +22,6 @@ import { orgMiddleware } from './common/middleware/org.middleware';
     ProjectsModule,
     TasksModule,
     GuardsModule,
-    SubtasksModule,
-    CommentsModule,
-    FilesModule,
-    ActivityLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

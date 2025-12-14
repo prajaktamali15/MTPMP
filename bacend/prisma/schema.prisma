@@ -26,8 +26,8 @@ model User {
   googleId       String?
   name           String?
   role           UserRole     @default(MEMBER)
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
   tasksAssigned  Task[]       @relation("UserAssignee")
   invitations    Invitation[] @relation("UserInvitations")
   comments       Comment[]
@@ -92,6 +92,7 @@ model Invitation {
   organizationId String
   invitedBy      User     @relation("UserInvitations", fields: [invitedById], references: [id])
   invitedById    String
+  expiresAt      DateTime @default(dbgenerated("NOW() + interval '24 hours'"))
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

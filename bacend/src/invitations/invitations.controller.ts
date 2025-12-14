@@ -8,6 +8,7 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrgGuard } from '../guards/org.guard';
 import { AuthGuard } from '@nestjs/passport';
@@ -47,71 +48,69 @@ export class InvitationsController {
 
     // Generate a unique token for the invitation
     const token = crypto.randomBytes(32).toString('hex');
-    
+
     // Create the invitation
     const invitation = await this.prisma.invitation.create({
       data: {
         email: data.email,
         role: data.role,
-        token: token,
+        token,
         organizationId: req.orgId,
-        invitedById: req.user.userId,
+        invitedById: req.user.userId, // Add the missing field
       },
     });
 
-    // In a real app, you would send an email here
-    // For now, we'll just return the invitation with the token
+    // TODO: Send email with invitation link
+    // For now, we'll just return the token so it can be used manually
     return { 
-      message: 'Invitation created successfully', 
-      invitation: {
-        id: invitation.id,
-        email: invitation.email,
-        role: invitation.role,
-        token: invitation.token,
-        organizationId: invitation.organizationId,
-      }
+      message: 'Invitation created successfully',
+      invitationId: invitation.id,
+      token: invitation.token,
     };
   }
 
-  @Get(':token/accept')
-  @UseGuards(AuthGuard('jwt')) // Only need JWT guard for this endpoint
-  async acceptInvitation(
-    @Param('token') token: string,
-    @Req() req: RequestWithUser,
-  ) {
-    // Find the invitation by token
+  @Get(':token')
+  // This endpoint doesn't require OrgGuard as it's used by invitees who aren't yet part of the org
+  async getInvitation(@Param('token') token: string) {
     const invitation = await this.prisma.invitation.findUnique({
-      where: { token: token },
+      where: { token },
+      include: { organization: true },
     });
 
-    if (!invitation) {
+    if (!invitation || invitation.expiresAt < new Date()) {
       throw new BadRequestException('Invalid or expired invitation');
     }
 
-    // Check if the invitation is for the current user's email
-    if (invitation.email !== req.user.email) {
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      organization: invitation.organization,
+    };
+  }
+
+  @Post(':token/accept')
+  // This endpoint doesn't require OrgGuard as it's used by invitees who aren't yet part of the org
+  async acceptInvitation(@Param('token') token: string, @Req() req: RequestWithUser) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { token },
+    });
+
+    if (!invitation || invitation.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired invitation');
+    }
+
+    // Verify that the user accepting the invitation matches the invited email
+    if (req.user.email !== invitation.email) {
       throw new BadRequestException('This invitation is not for your email address');
     }
 
-    // Check if invitation has expired (24 hours)
-    const now = new Date();
-    const invitationDate = new Date(invitation.createdAt);
-    const hoursDiff = Math.abs(now.getTime() - invitationDate.getTime()) / 3600000;
-    
-    if (hoursDiff > 24) {
-      throw new BadRequestException('Invitation has expired');
-    }
-
     // Add user to organization with the specified role
-    const updatedUser = await this.prisma.user.update({
+    await this.prisma.user.update({
       where: { id: req.user.userId },
       data: {
         role: invitation.role,
-        organization: {
-          connect: {
-            id: invitation.organizationId,
-          },
-        },
+        organizationId: invitation.organizationId,
       },
     });
 
@@ -120,9 +119,6 @@ export class InvitationsController {
       where: { id: invitation.id },
     });
 
-    return { 
-      message: 'Invitation accepted successfully',
-      organizationId: invitation.organizationId
-    };
+    return { message: 'Invitation accepted successfully' };
   }
 }
