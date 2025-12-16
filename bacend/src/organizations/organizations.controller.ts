@@ -9,6 +9,8 @@ import {
   UseGuards,
   Req,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -32,9 +34,7 @@ interface RequestWithUser extends Request {
 // It will be applied selectively to specific methods
 @UseGuards(AuthGuard('jwt'))
 export class OrganizationsController {
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   @Get()
   // Don't use OrgGuard for this endpoint as it's used to check user's organizations
@@ -54,7 +54,10 @@ export class OrganizationsController {
 
   @Get(':id')
   // Don't use OrgGuard for this endpoint as it's used to get a specific organization
-  async getOrganizationById(@Param('id') id: string, @Req() req: RequestWithUser) {
+  async getOrganizationById(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ) {
     // Users can only access organizations they belong to
     const user = await this.prisma.user.findUnique({
       where: { id: req.user.userId },
@@ -75,20 +78,119 @@ export class OrganizationsController {
     return organization;
   }
 
-  @Post()
+  @Get(':id/members')
+  @UseGuards(OrgGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.MEMBER)
+  async getOrganizationMembers(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ) {
+    // Verify that the user belongs to the organization
+    const user = await this.prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
+
+    if (!user || user.organizationId !== id) {
+      throw new BadRequestException('Organization not found or access denied');
+    }
+
+    // Get all members of the organization
+    const members = await this.prisma.user.findMany({
+      where: { organizationId: id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    return members;
+  }
+
+  @Delete(':id/members/:memberId')
   @UseGuards(OrgGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  async createOrganization(@Body() data: { name: string }, @Req() req: RequestWithUser) {
+  async removeOrganizationMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    // Verify that the user belongs to the organization
+    const user = await this.prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
+
+    if (!user || user.organizationId !== id) {
+      throw new BadRequestException('Organization not found or access denied');
+    }
+
+    // Check if the member to be removed exists and belongs to the organization
+    const memberToRemove = await this.prisma.user.findUnique({
+      where: { id: memberId },
+    });
+
+    if (!memberToRemove || memberToRemove.organizationId !== id) {
+      throw new BadRequestException('Member not found in this organization');
+    }
+
+    // Prevent owners from removing themselves
+    if (memberToRemove.role === 'OWNER' && memberToRemove.id === req.user.userId) {
+      throw new HttpException(
+        'Owners cannot remove themselves from the organization',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Remove the member from the organization by setting their organizationId to null
+    const updatedMember = await this.prisma.user.update({
+      where: { id: memberId },
+      data: {
+        organizationId: null,
+        role: 'MEMBER', // Reset role to MEMBER when removed from organization
+      },
+    });
+
+    return { 
+      message: 'Member removed successfully',
+      member: {
+        id: updatedMember.id,
+        email: updatedMember.email,
+        name: updatedMember.name,
+      }
+    };
+  }
+
+  @Post()
+  // Don't use OrgGuard or RolesGuard for this endpoint as it's used to create the first organization for a user
+  async createOrganization(
+    @Body() data: { name: string },
+    @Req() req: RequestWithUser,
+  ) {
+    // First check if user already belongs to an organization
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: { organization: true },
+    });
+
+    if (existingUser && existingUser.organization) {
+      throw new BadRequestException('User already belongs to an organization');
+    }
+
+    // Create the organization
     const organization = await this.prisma.organization.create({
       data: {
         name: data.name,
       },
     });
 
-    // Update user's organization
+    // Update user's organization and assign OWNER role
     await this.prisma.user.update({
       where: { id: req.user.userId },
-      data: { organizationId: organization.id },
+      data: {
+        organizationId: organization.id,
+        role: 'OWNER', // Assign OWNER role to the creator
+      },
     });
 
     return organization;
@@ -124,7 +226,10 @@ export class OrganizationsController {
   @Delete(':id')
   @UseGuards(OrgGuard, RolesGuard)
   @Roles(UserRole.OWNER)
-  async deleteOrganization(@Param('id') id: string, @Req() req: RequestWithUser) {
+  async deleteOrganization(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+  ) {
     // Verify that the organization belongs to the user
     const user = await this.prisma.user.findUnique({
       where: { id: req.user.userId },
@@ -149,7 +254,9 @@ export class OrganizationsController {
 
     // For now, we'll just log a warning about the limitation
     // In a real application, you'd need to handle this differently
-    console.warn('Cannot properly disconnect users from organization due to Prisma schema constraints');
+    console.warn(
+      'Cannot properly disconnect users from organization due to Prisma schema constraints',
+    );
 
     const organization = await this.prisma.organization.delete({
       where: { id },

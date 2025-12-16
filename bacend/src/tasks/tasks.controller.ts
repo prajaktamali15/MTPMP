@@ -76,9 +76,20 @@ export class TasksController {
   @Post()
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async createTask(
-    @Body() data: { title: string; description?: string; projectId: string; assigneeId?: string },
+    @Body()
+    data: {
+      title: string;
+      description?: string;
+      projectId: string;
+      assigneeId?: string;
+    },
     @Req() req: RequestWithUser,
   ) {
+    // Validate that projectId is provided
+    if (!data.projectId) {
+      throw new BadRequestException('Project ID is required');
+    }
+    
     // First verify that the project belongs to the organization
     const project = await this.prisma.project.findFirst({
       where: {
@@ -91,7 +102,8 @@ export class TasksController {
       throw new BadRequestException('Project not found or access denied');
     }
 
-    return this.prisma.task.create({
+    // Create the task
+    const task = await this.prisma.task.create({
       data: {
         title: data.title,
         description: data.description,
@@ -100,13 +112,32 @@ export class TasksController {
         assigneeId: data.assigneeId,
       },
     });
+    
+    // Create activity log
+    await this.prisma.activityLog.create({
+      data: {
+        action: 'created',
+        description: `Created task "${task.title}" in project "${project.name}"`,
+        userId: req.user.userId,
+        taskId: task.id,
+        projectId: project.id,
+      },
+    });
+    
+    return task;
   }
 
   @Put(':id')
   @Roles(UserRole.MEMBER, UserRole.ADMIN, UserRole.OWNER)
   async updateTask(
     @Param('id') id: string,
-    @Body() data: { title?: string; description?: string; status?: TaskStatus; assigneeId?: string },
+    @Body()
+    data: {
+      title?: string;
+      description?: string;
+      status?: TaskStatus;
+      assigneeId?: string;
+    },
     @Req() req: RequestWithUser,
   ) {
     // First verify that the task belongs to the organization
@@ -117,18 +148,35 @@ export class TasksController {
           organizationId: req.orgId,
         },
       },
+      include: {
+        project: true,
+      },
     });
 
     if (!task) {
       throw new BadRequestException('Task not found or access denied');
     }
 
-    return this.prisma.task.update({
+    // Update the task
+    const updatedTask = await this.prisma.task.update({
       where: {
         id: task.id,
       },
       data,
     });
+    
+    // Create activity log
+    await this.prisma.activityLog.create({
+      data: {
+        action: 'updated',
+        description: `Updated task "${updatedTask.title}" in project "${task.project.name}"`,
+        userId: req.user.userId,
+        taskId: updatedTask.id,
+        projectId: task.project.id,
+      },
+    });
+    
+    return updatedTask;
   }
 
   @Delete(':id')
@@ -142,16 +190,37 @@ export class TasksController {
           organizationId: req.orgId,
         },
       },
+      include: {
+        project: true,
+      },
     });
 
     if (!task) {
       throw new BadRequestException('Task not found or access denied');
     }
 
-    return this.prisma.task.delete({
+    // Store task title and project name for activity log before deleting
+    const taskTitle = task.title;
+    const projectName = task.project.name;
+    
+    // Delete the task
+    const deletedTask = await this.prisma.task.delete({
       where: {
         id: task.id,
       },
     });
+    
+    // Create activity log
+    await this.prisma.activityLog.create({
+      data: {
+        action: 'deleted',
+        description: `Deleted task "${taskTitle}" from project "${projectName}"`,
+        userId: req.user.userId,
+        taskId: task.id,  // Use task.id instead of deletedTask.id
+        projectId: task.project.id,
+      },
+    });
+    
+    return deletedTask;
   }
 }

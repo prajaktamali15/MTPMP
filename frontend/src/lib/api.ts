@@ -1,30 +1,19 @@
-// Mock data for development
-const mockProjects = [
-  { id: 1, name: 'Website Redesign', description: 'Redesign company website', createdAt: '2025-12-01', updatedAt: '2025-12-10' },
-  { id: 2, name: 'Mobile App', description: 'Develop mobile application', createdAt: '2025-12-05', updatedAt: '2025-12-12' },
-  { id: 3, name: 'Marketing Campaign', description: 'Plan marketing campaign', createdAt: '2025-12-08', updatedAt: '2025-12-14' }
-];
-
-const mockTasks = [
-  { id: 1, title: 'Design homepage', status: 'In Progress', projectId: 1, description: 'Create wireframes for homepage', createdAt: '2025-12-01' },
-  { id: 2, title: 'Setup database', status: 'Completed', projectId: 2, description: 'Configure PostgreSQL database', createdAt: '2025-12-05' },
-  { id: 3, title: 'Create wireframes', status: 'Pending', projectId: 1, description: 'Design mockups for all pages', createdAt: '2025-12-08' },
-  { id: 4, title: 'Write copy', status: 'Pending', projectId: 3, description: 'Create content for marketing materials', createdAt: '2025-12-10' }
-];
-
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 // Helper function to get organization ID from localStorage
-function getOrgId() {
+export function getOrgId() {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('current_org_id');
   }
   return null;
 }
 
-// Helper function to simulate API delay
-function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+// Helper function to get access token from localStorage
+export function getAccessToken() {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('access_token');
+  }
+  return null;
 }
 
 export async function postData(endpoint: string, data: any) {
@@ -32,39 +21,32 @@ export async function postData(endpoint: string, data: any) {
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${API_URL}${normalizedEndpoint}`;
   
-  // Get organization ID for the header
+  // Get organization ID and access token for headers
   const orgId = getOrgId();
-  
-  console.log(`Making REAL POST request to ${url} with data:`, data);
+  const accessToken = getAccessToken();
   
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        ...(orgId && { 'x-org-id': orgId }), // Add x-org-id header if available
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }), // Add Authorization header if available
+        // Add x-org-id header for all requests except auth endpoints
+        ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
       },
       body: JSON.stringify(data),
     });
     
-    console.log(`Response status: ${res.status}`);
-    
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`Request failed with status ${res.status}:`, errorText);
-      // If it's a 404, fall back to mock data
-      if (res.status === 404) {
-        console.log('Falling back to mock data for POST request');
-        return mockPostData(endpoint, data);
-      }
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
     
     return res.json();
   } catch (error) {
-    console.error('Network error, falling back to mock data:', error);
-    // Fall back to mock data on network errors
-    return mockPostData(endpoint, data);
+    console.error('Network error:', error);
+    throw error;
   }
 }
 
@@ -73,141 +55,151 @@ export async function getData(endpoint: string) {
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${API_URL}${normalizedEndpoint}`;
   
-  // Get organization ID for the header
+  // Get organization ID and access token for headers
   const orgId = getOrgId();
-  
-  console.log(`Making REAL GET request to ${url}`);
+  const accessToken = getAccessToken();
   
   try {
     const res = await fetch(url, {
       method: 'GET',
       headers: { 
         'Content-Type': 'application/json',
-        ...(orgId && { 'x-org-id': orgId }), // Add x-org-id header if available
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }), // Add Authorization header if available
+        // Add x-org-id header for all requests except auth endpoints
+        ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
       },
     });
-    
-    console.log(`Response status: ${res.status}`);
     
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`Request failed with status ${res.status}:`, errorText);
-      // If it's a 404, fall back to mock data
-      if (res.status === 404) {
-        console.log('Falling back to mock data for GET request');
-        return mockGetData(endpoint);
-      }
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
     
     return res.json();
   } catch (error) {
-    console.error('Network error, falling back to mock data:', error);
-    // Fall back to mock data on network errors
-    return mockGetData(endpoint);
+    console.error('Network error:', error);
+    throw error;
   }
 }
 
-// Mock implementations for fallback
-async function mockPostData(endpoint: string, data: any) {
-  // Simulate network delay
-  await delay(500);
+export async function putData(endpoint: string, data: any) {
+  // Ensure endpoint starts with /
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${API_URL}${normalizedEndpoint}`;
   
-  // Log the request for debugging
-  console.log(`Mock POST request to ${endpoint} with data:`, data);
+  // Get organization ID and access token for headers
+  const orgId = getOrgId();
+  const accessToken = getAccessToken();
   
-  // Handle different endpoints
-  if (endpoint === '/projects') {
-    // Create new project
-    const newProject = {
-      id: mockProjects.length + 1,
-      ...data,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-    mockProjects.push(newProject);
-    return newProject;
-  } else if (endpoint.startsWith('/projects/') && endpoint.endsWith('/delete')) {
-    // Delete project
-    const projectId = parseInt(endpoint.split('/')[2]);
-    const index = mockProjects.findIndex(p => p.id === projectId);
-    if (index !== -1) {
-      mockProjects.splice(index, 1);
+  try {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }), // Add Authorization header if available
+        // Add x-org-id header for all requests except auth endpoints
+        ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`Request failed with status ${res.status}:`, errorText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
-    return { success: true };
-  } else if (endpoint.startsWith('/projects/')) {
-    // Update project
-    const projectId = parseInt(endpoint.split('/')[2]);
-    const index = mockProjects.findIndex(p => p.id === projectId);
-    if (index !== -1) {
-      mockProjects[index] = { ...mockProjects[index], ...data, updatedAt: new Date().toISOString().split('T')[0] };
-      return mockProjects[index];
-    }
-    throw new Error('Project not found');
-  } else if (endpoint === '/tasks') {
-    // Create new task
-    const newTask = {
-      id: mockTasks.length + 1,
-      ...data,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    mockTasks.push(newTask);
-    return newTask;
-  } else if (endpoint.startsWith('/tasks/') && endpoint.endsWith('/delete')) {
-    // Delete task
-    const taskId = parseInt(endpoint.split('/')[2]);
-    const index = mockTasks.findIndex(t => t.id === taskId);
-    if (index !== -1) {
-      mockTasks.splice(index, 1);
-    }
-    return { success: true };
-  } else if (endpoint.startsWith('/tasks/')) {
-    // Update task
-    const taskId = parseInt(endpoint.split('/')[2]);
-    const index = mockTasks.findIndex(t => t.id === taskId);
-    if (index !== -1) {
-      mockTasks[index] = { ...mockTasks[index], ...data };
-      return mockTasks[index];
-    }
-    throw new Error('Task not found');
-  } else {
-    // Return success for other endpoints
-    return { success: true, ...data };
+    
+    return res.json();
+  } catch (error) {
+    console.error('Network error:', error);
+    throw error;
   }
 }
 
-async function mockGetData(endpoint: string) {
-  // Simulate network delay
-  await delay(500);
+export async function deleteData(endpoint: string) {
+  // Ensure endpoint starts with /
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${API_URL}${normalizedEndpoint}`;
   
-  // Log the request for debugging
-  console.log(`Mock GET request to ${endpoint}`);
+  // Get organization ID and access token for headers
+  const orgId = getOrgId();
+  const accessToken = getAccessToken();
   
-  // Handle different endpoints
-  if (endpoint === '/projects') {
-    // Return all projects
-    return mockProjects;
-  } else if (endpoint.startsWith('/projects/')) {
-    // Return specific project
-    const projectId = parseInt(endpoint.split('/')[2]);
-    const project = mockProjects.find(p => p.id === projectId);
-    if (project) {
-      return project;
+  try {
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }), // Add Authorization header if available
+        // Add x-org-id header for all requests except auth endpoints
+        ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
+      },
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`Request failed with status ${res.status}:`, errorText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
-    throw new Error('Project not found');
-  } else if (endpoint === '/tasks') {
-    // Return all tasks
-    return mockTasks;
-  } else if (endpoint.startsWith('/tasks/')) {
-    // Return specific task
-    const taskId = parseInt(endpoint.split('/')[2]);
-    const task = mockTasks.find(t => t.id === taskId);
-    if (task) {
-      return task;
-    }
-    throw new Error('Task not found');
-  } else {
-    // Return empty array for other endpoints
-    return [];
+    
+    return res.json();
+  } catch (error) {
+    console.error('Network error:', error);
+    throw error;
   }
+}
+
+// New function for file uploads
+export async function uploadFile(file: File, taskId?: string, projectId?: string) {
+  const url = `${API_URL}/files/upload`;
+  
+  // Get organization ID and access token for headers
+  const orgId = getOrgId();
+  const accessToken = getAccessToken();
+  
+  // Create FormData for file upload
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Add taskId or projectId if provided
+  if (taskId) {
+    formData.append('taskId', taskId);
+  }
+  if (projectId) {
+    formData.append('projectId', projectId);
+  }
+  
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }), // Add Authorization header if available
+        // Add x-org-id header for all requests except auth endpoints
+        ...(orgId && { 'x-org-id': orgId }),
+      },
+      body: formData,
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`File upload failed with status ${res.status}:`, errorText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    
+    return res.json();
+  } catch (error) {
+    console.error('File upload error:', error);
+    throw error;
+  }
+}
+
+// Function to get files for a task
+export async function getTaskFiles(taskId: string) {
+  return getData(`/files/task/${taskId}`);
+}
+
+// Function to delete a file
+export async function deleteFile(fileId: string) {
+  return deleteData(`/files/${fileId}`);
 }

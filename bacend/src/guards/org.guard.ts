@@ -48,7 +48,9 @@ export class OrgGuard implements CanActivate {
       }
 
       // If user belongs to an organization, but no orgId was provided, deny access
-      throw new ForbiddenException('Organization ID required for this operation');
+      throw new ForbiddenException(
+        'Organization ID required for this operation',
+      );
     }
 
     // Check if user belongs to the specified organization

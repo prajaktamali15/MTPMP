@@ -13,7 +13,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
     // Only initialize if credentials are provided
-    if (clientID && clientSecret && clientID !== 'your_google_client_id_here' && clientSecret !== 'your_google_client_secret_here') {
+    if (
+      clientID &&
+      clientSecret &&
+      clientID !== 'your_google_client_id_here' &&
+      clientSecret !== 'your_google_client_secret_here'
+    ) {
       super({
         clientID,
         clientSecret,
@@ -31,7 +36,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         scope: ['email', 'profile'],
       });
       this.isConfigured = false;
-      this.logger.warn('Google OAuth credentials not found. Google login will be disabled.');
+      this.logger.warn(
+        'Google OAuth credentials not found. Google login will be disabled.',
+      );
     }
   }
 
@@ -43,9 +50,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ): Promise<any> {
     // If Google OAuth is not properly configured, reject the request
     if (!this.isConfigured) {
-      throw new UnauthorizedException('Google OAuth is not properly configured');
+      throw new UnauthorizedException(
+        'Google OAuth is not properly configured',
+      );
     }
-    
+
     const email = profile.emails && profile.emails[0].value;
     const name = profile.name?.givenName;
 

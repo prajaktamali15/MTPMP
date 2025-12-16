@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { postData } from '@/lib/api'; // Import the postData function
 
 export default function CreateOrganizationPage() {
   const { user } = useAuth();
@@ -17,19 +18,26 @@ export default function CreateOrganizationPage() {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Simulate organization creation
-    setTimeout(() => {
+    try {
+      // Make real API call to create organization
+      const organization = await postData('/organizations', { name: orgName });
+      
       // Store organization ID in localStorage
-      localStorage.setItem('current_org_id', 'org_' + Date.now());
+      localStorage.setItem('current_org_id', organization.id);
+      
       setLoading(false);
       // Redirect to dashboard
       router.push('/dashboard');
-    }, 1000);
+    } catch (err: any) {
+      console.error('Failed to create organization:', err);
+      setError(err.message || 'Failed to create organization');
+      setLoading(false);
+    }
   };
 
   return (

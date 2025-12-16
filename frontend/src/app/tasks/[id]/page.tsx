@@ -3,32 +3,29 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
-import { getData, postData } from "@/lib/api";
+import { getData, postData, deleteData } from "@/lib/api";
 
-// Define TypeScript interfaces
 interface Task {
-  id: number;
+  id: string;  // Changed from number to string to match backend UUIDs
   title: string;
   description: string;
   status: string;
-  projectId: number;
+  projectId: string;  // Changed from number to string to match backend UUIDs
   createdAt: string;
 }
 
-export default function TaskDetailPage() {
+export default function EditTaskPage() {
   const { user } = useAuth();
   const router = useRouter();
   const params = useParams();
   const taskId = params.id as string;
   
-  const [task, setTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskStatus, setTaskStatus] = useState("OPEN");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   // Handle authentication and redirection with useEffect
   useEffect(() => {
@@ -46,13 +43,12 @@ export default function TaskDetailPage() {
 
   const fetchTaskData = async () => {
     try {
-      // Fetch task details
-      const taskResponse = await getData(`/tasks/${taskId}`) as Task;
-      setTask(taskResponse);
-      setTaskTitle(taskResponse.title);
-      setTaskDescription(taskResponse.description || "");
-      setTaskStatus(taskResponse.status || "OPEN");
+      const response = await getData(`/tasks/${taskId}`) as Task;
+      setTaskTitle(response.title);
+      setTaskDescription(response.description || "");
+      setTaskStatus(response.status || "OPEN");
     } catch (err: any) {
+      console.error('Error fetching task data:', err);
       setError(err.message || "Failed to load task data");
     } finally {
       setLoading(false);
@@ -65,14 +61,17 @@ export default function TaskDetailPage() {
     setError("");
 
     try {
-      const response = await postData(`/tasks/${taskId}`, {
+      await postData(`/tasks/${taskId}`, {
         title: taskTitle,
         description: taskDescription,
         status: taskStatus
-      }) as Task;
+      });
       
-      setTask(response);
       alert("Task updated successfully!");
+      // Redirect back to the project page
+      // First we need to get the project ID to redirect properly
+      const taskData = await getData(`/tasks/${taskId}`) as Task;
+      router.push(`/projects/${taskData.projectId}`);
     } catch (err: any) {
       setError(err.message || "Failed to update task");
     } finally {
@@ -86,9 +85,11 @@ export default function TaskDetailPage() {
     }
 
     try {
-      await postData(`/tasks/${taskId}/delete`, {});
+      // Use DELETE method instead of POST to /delete endpoint
+      await deleteData(`/tasks/${taskId}`);
       alert("Task deleted successfully!");
-      router.push("/tasks");
+      // Redirect back to the projects page
+      router.push("/projects");
     } catch (err: any) {
       setError(err.message || "Failed to delete task");
     }
@@ -111,10 +112,10 @@ export default function TaskDetailPage() {
         <h1 className="text-3xl font-bold mb-4">Error</h1>
         <p className="text-red-500">{error}</p>
         <button 
-          onClick={() => router.push("/tasks")}
+          onClick={() => router.push("/projects")}
           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
-          Back to Tasks
+          Back to Projects
         </button>
       </div>
     );
@@ -129,10 +130,10 @@ export default function TaskDetailPage() {
     <div className="p-6">
       <div className="mb-6">
         <button 
-          onClick={() => router.push("/tasks")}
+          onClick={() => router.push("/projects")}
           className="text-blue-600 hover:text-blue-800 mb-4"
         >
-          ← Back to Tasks
+          ← Back to Projects
         </button>
         <h1 className="text-3xl font-bold mb-2">Edit Task</h1>
       </div>
@@ -173,13 +174,13 @@ export default function TaskDetailPage() {
             <select
               id="taskStatus"
               value={taskStatus}
-              onChange={(e) => setTaskStatus(e.target.value)}
+              onChange={(e) => setTaskStatus(e.target.value)}cd
               className="w-full border border-gray-300 p-2 rounded"
             >
               <option value="OPEN">Open</option>
               <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
+              <option value="DONE">Completed</option>
+              <option value="BLOCKED">Blocked</option>
             </select>
           </div>
           
@@ -194,7 +195,7 @@ export default function TaskDetailPage() {
             
             <button
               type="button"
-              onClick={() => router.push("/tasks")}
+              onClick={() => router.push("/projects")}
               className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
             >
               Cancel

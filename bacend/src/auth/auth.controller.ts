@@ -1,4 +1,16 @@
-import { Controller, Post, Body, Get, Req, Res, UseGuards, BadRequestException, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Req,
+  Res,
+  UseGuards,
+  BadRequestException,
+  Logger,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -16,32 +28,49 @@ export class AuthController {
     this.logger.log(`Registration attempt for email: ${dto.email}`);
     this.logger.log(`Raw request body: ${JSON.stringify(req.body)}`);
     this.logger.log(`DTO received: ${JSON.stringify(dto)}`);
-    
+
     // Validate that required fields are present
     if (!dto.email || !dto.password) {
-      this.logger.error(`Missing required fields. Email: ${!!dto.email}, Password: ${!!dto.password}`);
-      throw new HttpException('Email and password are required', HttpStatus.BAD_REQUEST);
+      this.logger.error(
+        `Missing required fields. Email: ${!!dto.email}, Password: ${!!dto.password}`,
+      );
+      throw new HttpException(
+        'Email and password are required',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(dto.email)) {
       this.logger.error(`Invalid email format: ${dto.email}`);
       throw new HttpException('Invalid email format', HttpStatus.BAD_REQUEST);
     }
-    
+
     // Validate password length
     if (dto.password.length < 6) {
-      this.logger.error(`Password too short: ${dto.password.length} characters`);
-      throw new HttpException('Password must be at least 6 characters long', HttpStatus.BAD_REQUEST);
+      this.logger.error(
+        `Password too short: ${dto.password.length} characters`,
+      );
+      throw new HttpException(
+        'Password must be at least 6 characters long',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    
+
     try {
-      const result = await this.authService.register(dto.email, dto.password, dto.name);
+      const result = await this.authService.register(
+        dto.email,
+        dto.password,
+        dto.name,
+      );
       this.logger.log(`Registration successful for email: ${dto.email}`);
       return result;
     } catch (error) {
-      this.logger.error(`Registration failed for email: ${dto.email}`, error.stack);
+      this.logger.error(
+        `Registration failed for email: ${dto.email}`,
+        error.stack,
+      );
       if (error.code === 'P2002') {
         // Unique constraint violation
         return { error: 'User with this email already exists' };
@@ -72,22 +101,31 @@ export class AuthController {
   async googleAuth(@Res() res: Response) {
     // Log environment variables for debugging
     this.logger.log(`GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID}`);
-    this.logger.log(`GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '[SET]' : '[NOT SET]'}`);
-    
+    this.logger.log(
+      `GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '[SET]' : '[NOT SET]'}`,
+    );
+
     // Check if Google OAuth is properly configured
     const clientID = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    
-    if (!clientID || !clientSecret || 
-        clientID === 'your_google_client_id_here' || 
-        clientSecret === 'your_google_client_secret_here') {
+
+    if (
+      !clientID ||
+      !clientSecret ||
+      clientID === 'your_google_client_id_here' ||
+      clientSecret === 'your_google_client_secret_here'
+    ) {
       this.logger.warn('Google OAuth not configured properly');
-      return res.status(400).json({ error: 'Google OAuth not configured properly' });
+      return res
+        .status(400)
+        .json({ error: 'Google OAuth not configured properly' });
     }
-    
+
     // If configured, redirect to Google OAuth
     // Note: This will automatically redirect to Google's OAuth endpoint
-    return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientID}&redirect_uri=http://localhost:3002/auth/google/callback&response_type=code&scope=email profile`);
+    return res.redirect(
+      `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientID}&redirect_uri=http://localhost:3002/auth/google/callback&response_type=code&scope=email profile`,
+    );
   }
 
   @Get('google/callback')
@@ -96,17 +134,22 @@ export class AuthController {
     // Check if Google OAuth is properly configured
     const clientID = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    
-    if (!clientID || !clientSecret || 
-        clientID === 'your_google_client_id_here' || 
-        clientSecret === 'your_google_client_secret_here') {
-      return res.status(400).json({ error: 'Google OAuth not configured properly' });
+
+    if (
+      !clientID ||
+      !clientSecret ||
+      clientID === 'your_google_client_id_here' ||
+      clientSecret === 'your_google_client_secret_here'
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'Google OAuth not configured properly' });
     }
-    
+
     try {
       const tokens = await this.authService.login(req.user);
       res.redirect(
-        `http://localhost:3000/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`
+        `http://localhost:3000/auth/callback?access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
       );
     } catch (error) {
       res.redirect('http://localhost:3000/auth/login?error=google_auth_failed');

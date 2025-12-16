@@ -1,203 +1,159 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { getData, postData } from "@/lib/api";
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { getData, deleteData } from '@/lib/api';
+
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 export default function OrganizationMembersPage() {
   const { user } = useAuth();
   const router = useRouter();
-  
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("MEMBER");
-  const [inviting, setInviting] = useState(false);
+  const [error, setError] = useState('');
 
-  // Handle authentication and redirection with useEffect
-  useEffect(() => {
-    if (!user) {
-      router.push("/auth/login");
-    }
-  }, [user, router]);
+  // Redirect if not logged in
+  if (!user) {
+    router.push('/auth/login');
+    return null;
+  }
 
-  // Fetch members data
+  // Load members
   useEffect(() => {
     if (user) {
-      fetchMembers();
+      loadMembers();
     }
   }, [user]);
 
-  const fetchMembers = async () => {
+  const loadMembers = async () => {
     try {
-      // Get organization ID from localStorage
+      setLoading(true);
+      
+      // Get current organization ID from localStorage
       const orgId = localStorage.getItem('current_org_id');
       if (!orgId) {
-        router.push("/dashboard");
-        return;
+        throw new Error('No organization found');
       }
-      
-      // In a real app, you would fetch members from an API
-      // For now, we'll simulate members data
-      setMembers([
-        { id: '1', name: 'John Doe', email: 'john@example.com', role: 'OWNER' },
-        { id: '2', name: 'Jane Smith', email: 'jane@example.com', role: 'MEMBER' },
-      ]);
+
+      // Load real members data
+      const membersData = await getData(`/organizations/${orgId}/members`);
+      setMembers(membersData || []);
     } catch (err: any) {
-      setError(err.message || "Failed to load members");
+      console.error('Failed to load members:', err);
+      setError(err.message || 'Failed to load members');
+      setMembers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setInviting(true);
-    setError("");
+  const handleRemoveMember = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to remove ${name} from the organization?`)) {
+      try {
+        // Get current organization ID from localStorage
+        const orgId = localStorage.getItem('current_org_id');
+        if (!orgId) {
+          throw new Error('No organization found');
+        }
 
-    try {
-      const orgId = localStorage.getItem('current_org_id');
-      if (!orgId) {
-        throw new Error("No organization selected");
+        // Call the remove member API
+        await deleteData(`/organizations/${orgId}/members/${id}`);
+        
+        // Show success message
+        alert(`${name} has been removed from the organization.`);
+        
+        // Refresh the member list
+        loadMembers();
+      } catch (err: any) {
+        console.error('Failed to remove member:', err);
+        alert(err.message || 'Failed to remove member');
       }
-      
-      // Create invitation using the API
-      const response = await postData('/invitations', { email: inviteEmail, role: inviteRole });
-      
-      if (response.error) {
-        throw new Error(response.error);
-      }
-      
-      // Show success message with the token
-      alert(`Invitation created! Share this token with the user: ${response.invitation.token}`);
-      
-      // Reset form
-      setInviteEmail("");
-      setInviteRole("MEMBER");
-    } catch (err: any) {
-      setError(err.message || "Failed to create invitation");
-    } finally {
-      setInviting(false);
     }
   };
 
-  // Handle loading state
   if (loading) {
     return (
       <div className="p-6">
         <h1 className="text-3xl font-bold mb-4">Loading...</h1>
-        <p className="text-lg text-gray-600">Fetching organization members...</p>
+        <p className="text-lg text-gray-600">Loading organization members...</p>
       </div>
     );
-  }
-
-  // Handle error state
-  if (error) {
-    return (
-      <div className="p-6">
-        <h1 className="text-3xl font-bold mb-4">Error</h1>
-        <p className="text-red-500">{error}</p>
-        <button 
-          onClick={() => router.push("/dashboard")}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Back to Dashboard
-        </button>
-      </div>
-    );
-  }
-
-  // Handle unauthenticated state
-  if (!user) {
-    return null; // Will be redirected by useEffect
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Organization Members</h1>
         <button 
-          onClick={() => router.push("/dashboard")}
-          className="text-blue-600 hover:text-blue-800 mb-4"
+          onClick={() => router.push('/invitations/send')}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
-          ← Back to Dashboard
+          Invite Members
         </button>
-        <h1 className="text-3xl font-bold mb-2">Organization Members</h1>
       </div>
-
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Invite New Member</h2>
-        
-        <div className="mb-6 p-4 border rounded">
-          <form onSubmit={handleInvite} className="space-y-4">
-            <div>
-              <label htmlFor="inviteEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address *
-              </label>
-              <input
-                type="email"
-                id="inviteEmail"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full border border-gray-300 p-2 rounded"
-                required
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="inviteRole" className="block text-sm font-medium text-gray-700 mb-1">
-                Role
-              </label>
-              <select
-                id="inviteRole"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-                className="w-full border border-gray-300 p-2 rounded"
-              >
-                <option value="MEMBER">Member</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </div>
-            
-            <button
-              type="submit"
-              disabled={inviting}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {inviting ? "Sending Invitation..." : "Send Invitation"}
-            </button>
-          </form>
+      
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <p>{error}</p>
         </div>
-      </div>
-
+      )}
+      
       <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Current Members</h2>
-        
-        {members.length === 0 ? (
-          <div className="text-center py-8 border-2 border-dashed rounded">
-            <p className="text-gray-500">No members yet</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {members.map((member) => (
-              <div key={member.id} className="border rounded-lg p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold">{member.name || "Unnamed User"}</h3>
-                    <p className="text-gray-600">{member.email}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                      {member.role}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <h2 className="text-2xl font-semibold mb-4">Members</h2>
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {members.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                    No members found
+                  </td>
+                </tr>
+              ) : (
+                members.map((member) => (
+                  <tr key={member.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{member.name || 'Unnamed User'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{member.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {member.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {member.role !== 'OWNER' && (
+                        <button
+                          onClick={() => handleRemoveMember(member.id, member.name || member.email)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

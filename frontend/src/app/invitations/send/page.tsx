@@ -3,15 +3,16 @@
 import { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { postData } from '@/lib/api';
 
 export default function SendInvitationPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('member');
-  const [message, setMessage] = useState('');
+  const [role, setRole] = useState('MEMBER');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   // Redirect if not logged in
   if (!user) {
@@ -19,24 +20,32 @@ export default function SendInvitationPage() {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // Simulate sending invitation
-    setTimeout(() => {
+    try {
+      // Make real API call to send invitation
+      const response = await postData('/invitations', {
+        email,
+        role
+      });
+      
       setLoading(false);
       setSuccess(true);
-      setMessage(`Invitation sent to ${email} with ${role} role.`);
       
       // Reset form after 3 seconds
       setTimeout(() => {
         setEmail('');
-        setRole('member');
+        setRole('MEMBER');
         setSuccess(false);
-        setMessage('');
       }, 3000);
-    }, 1000);
+    } catch (err: any) {
+      console.error('Failed to send invitation:', err);
+      setError(err.message || 'Failed to send invitation');
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,6 +61,12 @@ export default function SendInvitationPage() {
       </div>
       
       <div className="bg-white rounded-lg shadow p-6">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            <p>{error}</p>
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -76,26 +91,12 @@ export default function SendInvitationPage() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-              <option value="owner">Owner</option>
+              <option value="MEMBER">Member</option>
+              <option value="ADMIN">Admin</option>
             </select>
             <p className="mt-1 text-sm text-gray-500">
-              Owner has full access, Admin can manage projects and members, Member can only view and comment.
+              Admin can manage projects and members, Member can only view and comment.
             </p>
-          </div>
-          
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Personal Message (Optional)
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={4}
-              placeholder="Add a personal message to your invitation..."
-            />
           </div>
           
           <div className="flex items-center justify-between">
@@ -119,36 +120,9 @@ export default function SendInvitationPage() {
         
         {success && (
           <div className="mt-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-            <p>{message}</p>
+            <p>Invitation sent successfully to {email} with {role} role.</p>
           </div>
         )}
-      </div>
-      
-      <div className="mt-8 bg-gray-50 rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Pending Invitations</h2>
-        <div className="space-y-3">
-          <div className="flex justify-between items-center p-3 bg-white rounded border">
-            <div>
-              <p className="font-medium">john.doe@example.com</p>
-              <p className="text-sm text-gray-500">Sent 2 days ago</p>
-            </div>
-            <div className="flex space-x-2">
-              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">Pending</span>
-              <button className="text-red-600 hover:text-red-800 text-sm">Resend</button>
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center p-3 bg-white rounded border">
-            <div>
-              <p className="font-medium">jane.smith@example.com</p>
-              <p className="text-sm text-gray-500">Sent 1 week ago</p>
-            </div>
-            <div className="flex space-x-2">
-              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">Pending</span>
-              <button className="text-red-600 hover:text-red-800 text-sm">Resend</button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

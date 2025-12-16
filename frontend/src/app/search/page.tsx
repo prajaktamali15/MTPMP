@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData } from '@/lib/api';
 
 interface SearchResult {
   id: number;
@@ -28,33 +29,22 @@ export default function SearchPage() {
     }
   }, [user, router]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
     
     setLoading(true);
     
-    // Simulate search
-    setTimeout(() => {
-      const mockResults: SearchResult[] = [
-        { id: 1, type: 'project', title: 'Website Redesign', description: 'Complete redesign of company website' },
-        { id: 2, type: 'task', title: 'Design Homepage', description: 'Create wireframes for homepage', project: 'Website Redesign', status: 'In Progress' },
-        { id: 3, type: 'member', title: 'John Doe', description: 'Frontend Developer', role: 'Admin' },
-        { id: 4, type: 'project', title: 'Mobile App', description: 'Development of mobile application' },
-        { id: 5, type: 'task', title: 'Setup Database', description: 'Configure PostgreSQL database', project: 'Mobile App', status: 'Completed' },
-        { id: 6, type: 'member', title: 'Jane Smith', description: 'Backend Developer', role: 'Member' }
-      ];
-      
-      // Filter results based on query
-      const filteredResults = mockResults.filter(item => 
-        item.title.toLowerCase().includes(query.toLowerCase()) ||
-        item.description.toLowerCase().includes(query.toLowerCase()) ||
-        (item.project && item.project.toLowerCase().includes(query.toLowerCase()))
-      );
-      
-      setResults(filteredResults);
+    try {
+      // TODO: Implement real search API endpoint
+      // For now, we'll show empty results
+      setResults([]);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setResults([]);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // Handle unauthenticated state
@@ -163,7 +153,7 @@ export default function SearchPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-gray-500">Enter a search term to find projects, tasks, and members</p>
+          <p className="text-gray-500">Enter a search term to find projects, tasks and members</p>
         </div>
       )}
     </div>

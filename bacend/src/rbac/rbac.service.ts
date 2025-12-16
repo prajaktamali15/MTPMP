@@ -9,7 +9,11 @@ export class RbacService {
   /**
    * Check if a user has a specific role in an organization
    */
-  async hasRole(userId: string, orgId: string, requiredRole: UserRole): Promise<boolean> {
+  async hasRole(
+    userId: string,
+    orgId: string,
+    requiredRole: UserRole,
+  ): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -26,7 +30,10 @@ export class RbacService {
   /**
    * Check if a user has the required privilege level
    */
-  private hasRequiredPrivilege(userRole: UserRole, requiredRole: UserRole): boolean {
+  private hasRequiredPrivilege(
+    userRole: UserRole,
+    requiredRole: UserRole,
+  ): boolean {
     const roleHierarchy = {
       [UserRole.OWNER]: 4,
       [UserRole.ADMIN]: 3,
@@ -40,12 +47,16 @@ export class RbacService {
   /**
    * Assign a role to a user in an organization
    */
-  async assignRole(userId: string, orgId: string, role: UserRole): Promise<void> {
+  async assignRole(
+    userId: string,
+    orgId: string,
+    role: UserRole,
+  ): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { 
+      data: {
         role: role,
-        organization: { connect: { id: orgId } }
+        organization: { connect: { id: orgId } },
       },
     });
   }

@@ -1,16 +1,15 @@
 'use client';
 import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { postData } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { login } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,22 +28,11 @@ export default function RegisterPage() {
       if (res.error) {
         setError(res.error);
       } else {
-        // Automatically login after registration
-        try {
-          const loginRes = await postData('/auth/login', { 
-            email: email.trim(), 
-            password: password.trim() 
-          });
-          if (!loginRes.error) {
-            login(loginRes);
-          } else {
-            // If auto-login fails, redirect to login page
-            router.push('/auth/login');
-          }
-        } catch (loginErr) {
-          // If auto-login fails, redirect to login page
+        // Show success message and redirect to login page
+        setSuccess(true);
+        setTimeout(() => {
           router.push('/auth/login');
-        }
+        }, 2000); // Redirect after 2 seconds
       }
     } catch (err: any) {
       console.error('Registration error:', err);
@@ -56,6 +44,7 @@ export default function RegisterPage() {
     <div className="max-w-md mx-auto mt-20 p-6 border rounded shadow">
       <h1 className="text-2xl mb-4">Register</h1>
       {error && <p className="text-red-500">{error}</p>}
+      {success && <p className="text-green-500">Registration successful! Redirecting to login...</p>}
       <form onSubmit={handleRegister} className="space-y-4">
         <input
           type="text"

@@ -34,13 +34,8 @@ export default function ActivityPage() {
         setActivityLogs(data);
       } catch (error) {
         console.error('Failed to load activity logs:', error);
-        // Fallback to mock data
-        setActivityLogs([
-          { id: 1, action: 'Created Task', description: 'Created new task "Design homepage"', projectId: 1, taskId: 1, userId: 1, createdAt: '2025-12-01T10:00:00Z' },
-          { id: 2, action: 'Updated Task', description: 'Updated task status to "In Progress"', projectId: 1, taskId: 1, userId: 2, createdAt: '2025-12-01T11:30:00Z' },
-          { id: 3, action: 'Added Comment', description: 'Added comment to task', projectId: 1, taskId: 1, userId: 1, createdAt: '2025-12-01T10:30:00Z' },
-          { id: 4, action: 'Uploaded File', description: 'Uploaded design_mockup.pdf', projectId: 1, taskId: 1, userId: 1, createdAt: '2025-12-01T10:30:00Z' }
-        ]);
+        // No fallback to mock data - show empty array
+        setActivityLogs([]);
       } finally {
         setLoading(false);
       }
@@ -87,19 +82,27 @@ export default function ActivityPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {activityLogs.map((log) => (
-              <tr key={log.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{log.action}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">{log.description}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(log.createdAt).toLocaleString()}
+            {activityLogs.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-6 py-4 text-center text-gray-500">
+                  No activity logs found
                 </td>
               </tr>
-            ))}
+            ) : (
+              activityLogs.map((log) => (
+                <tr key={log.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{log.action}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">{log.description}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(log.createdAt).toLocaleString()}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

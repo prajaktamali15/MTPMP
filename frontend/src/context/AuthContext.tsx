@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { getData } from '@/lib/api';
 
 interface AuthContextType {
   user: any;
@@ -32,17 +33,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = (tokens: { access_token: string; refresh_token: string }) => {
+  const login = async (tokens: { access_token: string; refresh_token: string }) => {
     localStorage.setItem('access_token', tokens.access_token);
     localStorage.setItem('refresh_token', tokens.refresh_token);
     setUser({ token: tokens.access_token });
-    router.push('/dashboard'); // redirect after login
+
+    try {
+      // Check if user belongs to any organization
+      const orgs = await getData('/organizations');
+
+      if (orgs && orgs.length > 0) {
+        // User belongs to an organization, store the org ID and go to dashboard
+        localStorage.setItem('current_org_id', orgs[0].id);
+        router.push('/dashboard');
+      } else {
+        // User doesn't belong to any organization, redirect to create org page
+        router.push('/org/create');
+      }
+    } catch (error) {
+      console.error('Error checking user organization:', error);
+      // If there's an error, redirect to create organization page
+      router.push('/org/create');
+    }
   };
 
-  const loginWithToken = (token: string) => {
+  const loginWithToken = async (token: string) => {
     localStorage.setItem('access_token', token);
     setUser({ token });
-    router.push('/dashboard');
+
+    try {
+      // Check if user belongs to any organization
+      const orgs = await getData('/organizations');
+
+      if (orgs && orgs.length > 0) {
+        // User belongs to an organization, store the org ID and go to dashboard
+        localStorage.setItem('current_org_id', orgs[0].id);
+        router.push('/dashboard');
+      } else {
+        // User doesn't belong to any organization, redirect to create org page
+        router.push('/org/create');
+      }
+    } catch (error) {
+      console.error('Error checking user organization:', error);
+      // If there's an error, redirect to create organization page
+      router.push('/org/create');
+    }
   };
 
   const logout = () => {

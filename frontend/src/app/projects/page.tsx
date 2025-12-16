@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getData, postData } from '../../lib/api';
+import { getData, postData, deleteData } from '@/lib/api';
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
   description: string;
   createdAt: string;
@@ -44,12 +44,8 @@ export default function ProjectsPage() {
       setProjects(data);
     } catch (error) {
       console.error('Failed to load projects:', error);
-      // Fallback to mock data
-      setProjects([
-        { id: 1, name: 'Website Redesign', description: 'Redesign company website', createdAt: '2025-12-01', updatedAt: '2025-12-10' },
-        { id: 2, name: 'Mobile App', description: 'Develop mobile application', createdAt: '2025-12-05', updatedAt: '2025-12-12' },
-        { id: 3, name: 'Marketing Campaign', description: 'Plan marketing campaign', createdAt: '2025-12-08', updatedAt: '2025-12-14' }
-      ]);
+      // No fallback to mock data anymore
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -85,35 +81,21 @@ export default function ProjectsPage() {
       }
     } catch (error) {
       console.error('Failed to save project:', error);
-      // Fallback to local update
-      if (editingProject) {
-        setProjects(projects.map(p => 
-          p.id === editingProject.id 
-            ? { ...p, ...formData, updatedAt: new Date().toISOString().split('T')[0] } 
-            : p
-        ));
-      } else {
-        const newProject: Project = {
-          id: projects.length + 1,
-          ...formData,
-          createdAt: new Date().toISOString().split('T')[0],
-          updatedAt: new Date().toISOString().split('T')[0]
-        };
-        setProjects([...projects, newProject]);
-      }
+      // No fallback to local update anymore
     }
     setShowCreateForm(false);
     setFormData({ name: '', description: '' });
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {  // Changed parameter type from number to string
     if (confirm('Are you sure you want to delete this project?')) {
       try {
-        await postData(`/projects/${id}/delete`, {});
+        // Use DELETE method instead of POST to /delete endpoint
+        await deleteData(`/projects/${id}`);
         setProjects(projects.filter(p => p.id !== id));
       } catch (error) {
         console.error('Failed to delete project:', error);
-        // Fallback to local deletion
+        // No fallback to local deletion anymore
         setProjects(projects.filter(p => p.id !== id));
       }
     }

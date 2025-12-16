@@ -7,10 +7,10 @@ import {
   UseGuards,
   Req,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrgGuard } from '../guards/org.guard';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
@@ -23,102 +23,82 @@ interface RequestWithUser extends Request {
     email: string;
     role: string;
   };
-  orgId: string;
 }
 
 @Controller('invitations')
-@UseGuards(AuthGuard('jwt'), OrgGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'))
 export class InvitationsController {
   constructor(private prisma: PrismaService) {}
 
   @Post()
+  @UseGuards(RolesGuard) // Only apply RolesGuard, handle org validation manually
   @Roles(UserRole.ADMIN, UserRole.OWNER)
   async createInvitation(
-    @Body() data: { email: string, role: UserRole },
+    @Body() data: { email: string; role: UserRole },
     @Req() req: RequestWithUser,
   ) {
-    // Verify that the user belongs to the organization
+    // Get orgId from headers since middleware skips invitation routes
+    const orgId = req.headers['x-org-id'] as string;
+    
+    if (!orgId) {
+      throw new BadRequestException('Organization ID missing (x-org-id header required)');
+    }
+
+    // Verify that the user belongs to the organization and has the right role
     const requestingUser = await this.prisma.user.findUnique({
       where: { id: req.user.userId },
     });
 
-    if (!requestingUser || requestingUser.organizationId !== req.orgId) {
-      throw new BadRequestException('Organization not found or access denied');
+    if (!requestingUser) {
+      throw new ForbiddenException('User not found');
     }
 
-    // Generate a unique token for the invitation
-    const token = crypto.randomBytes(32).toString('hex');
+    if (requestingUser.organizationId !== orgId) {
+      throw new ForbiddenException('Organization not found or access denied');
+    }
 
-    // Create the invitation
-    const invitation = await this.prisma.invitation.create({
-      data: {
-        email: data.email,
-        role: data.role,
-        token,
-        organizationId: req.orgId,
-        invitedById: req.user.userId, // Add the missing field
-      },
+    // Check if user has required role (ADMIN or OWNER)
+    if (requestingUser.role !== UserRole.ADMIN && requestingUser.role !== UserRole.OWNER) {
+      throw new ForbiddenException('Insufficient privileges');
+    }
+
+    // Check if a user with this email already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: data.email },
     });
 
-    // TODO: Send email with invitation link
-    // For now, we'll just return the token so it can be used manually
-    return { 
-      message: 'Invitation created successfully',
-      invitationId: invitation.id,
-      token: invitation.token,
-    };
+    if (existingUser) {
+      // If user exists, directly add them to the organization with the specified role
+      await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          role: data.role,
+          organizationId: orgId,
+        },
+      });
+      
+      return {
+        message: 'User added to organization successfully',
+        userId: existingUser.id,
+      };
+    } else {
+      // If user doesn't exist, create a placeholder user that will be completed when they register
+      const newUser = await this.prisma.user.create({
+        data: {
+          email: data.email,
+          password: '', // Empty password for now
+          name: '', // Empty name for now
+          role: data.role,
+          organizationId: orgId,
+        },
+      });
+      
+      return {
+        message: 'Invitation sent successfully. User will be added to organization upon registration.',
+        userId: newUser.id,
+      };
+    }
   }
 
-  @Get(':token')
-  // This endpoint doesn't require OrgGuard as it's used by invitees who aren't yet part of the org
-  async getInvitation(@Param('token') token: string) {
-    const invitation = await this.prisma.invitation.findUnique({
-      where: { token },
-      include: { organization: true },
-    });
-
-    if (!invitation || invitation.expiresAt < new Date()) {
-      throw new BadRequestException('Invalid or expired invitation');
-    }
-
-    return {
-      id: invitation.id,
-      email: invitation.email,
-      role: invitation.role,
-      organization: invitation.organization,
-    };
-  }
-
-  @Post(':token/accept')
-  // This endpoint doesn't require OrgGuard as it's used by invitees who aren't yet part of the org
-  async acceptInvitation(@Param('token') token: string, @Req() req: RequestWithUser) {
-    const invitation = await this.prisma.invitation.findUnique({
-      where: { token },
-    });
-
-    if (!invitation || invitation.expiresAt < new Date()) {
-      throw new BadRequestException('Invalid or expired invitation');
-    }
-
-    // Verify that the user accepting the invitation matches the invited email
-    if (req.user.email !== invitation.email) {
-      throw new BadRequestException('This invitation is not for your email address');
-    }
-
-    // Add user to organization with the specified role
-    await this.prisma.user.update({
-      where: { id: req.user.userId },
-      data: {
-        role: invitation.role,
-        organizationId: invitation.organizationId,
-      },
-    });
-
-    // Delete the invitation as it's been used
-    await this.prisma.invitation.delete({
-      where: { id: invitation.id },
-    });
-
-    return { message: 'Invitation accepted successfully' };
-  }
+  // Remove the getInvitation and acceptInvitation endpoints as they're not needed in the simplified flow
 }

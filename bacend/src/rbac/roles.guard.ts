@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RbacService } from './rbac.service';
 import { UserRole } from '../../generated/prisma';
@@ -11,10 +16,10 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>('roles', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      'roles',
+      [context.getHandler(), context.getClass()],
+    );
 
     // If no roles are required, allow access
     if (!requiredRoles || requiredRoles.length === 0) {
@@ -23,11 +28,18 @@ export class RolesGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const orgId = request.orgId;
+    
+    // For invitation routes, get orgId from headers instead of request.orgId
+    let orgId = request.orgId;
+    if (!orgId && request.path && request.path.startsWith('/invitations')) {
+      orgId = request.headers['x-org-id'] as string;
+    }
 
     // Check if user and orgId are present
     if (!user || !orgId) {
-      throw new ForbiddenException('Access denied: User or organization not specified');
+      throw new ForbiddenException(
+        'Access denied: User or organization not specified',
+      );
     }
 
     // Check if user has any of the required roles

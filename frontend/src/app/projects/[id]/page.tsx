@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
-import { getData, postData } from "@/lib/api";
+import { getData, postData, deleteData } from "@/lib/api";
 
 // Define TypeScript interfaces
 interface Project {
-  id: number;
+  id: string;  // Changed from number to string to match backend UUIDs
   name: string;
   description: string;
   createdAt: string;
@@ -15,11 +15,11 @@ interface Project {
 }
 
 interface Task {
-  id: number;
+  id: string;  // Changed from number to string to match backend UUIDs
   title: string;
   description: string;
   status: string;
-  projectId: number;
+  projectId: string;  // Changed from number to string to match backend UUIDs
   createdAt: string;
 }
 
@@ -68,8 +68,8 @@ export default function ProjectDetailPage() {
       
       // Fetch tasks for this project
       const tasksResponse = await getData(`/tasks`) as Task[];
-      // Convert projectId to number for comparison since our mock data uses numbers
-      const projectTasks = tasksResponse.filter((task) => task.projectId === Number(projectId));
+      // Filter tasks by projectId (both are now strings)
+      const projectTasks = tasksResponse.filter((task) => task.projectId === projectId);
       setTasks(projectTasks);
     } catch (err: any) {
       console.error('Error fetching project data:', err);
@@ -93,7 +93,7 @@ export default function ProjectDetailPage() {
       const response = await postData("/tasks", {
         title: taskTitle,
         description: taskDescription,
-        projectId: Number(projectId)
+        projectId: projectId  // Send as string, not converted to number
       }) as Task;
       
       // Add new task to the list
@@ -135,11 +135,37 @@ export default function ProjectDetailPage() {
     }
 
     try {
-      await postData(`/projects/${projectId}/delete`, {});
+      // Use DELETE method instead of POST to /delete endpoint
+      await deleteData(`/projects/${projectId}`);
       alert("Project deleted successfully!");
       router.push("/projects");
     } catch (err: any) {
       setError(err.message || "Failed to delete project");
+    }
+  };
+
+  const handleEditTask = async (taskId: string, updatedTask: Partial<Task>) => {  // Changed taskId type to string
+    try {
+      const response = await postData(`/tasks/${taskId}`, updatedTask) as Task;
+      // Update the task in the list
+      setTasks(tasks.map(task => task.id === taskId ? {...task, ...response} : task));
+    } catch (err: any) {
+      setError(err.message || "Failed to update task");
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {  // Changed taskId type to string
+    if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await deleteData(`/tasks/${taskId}`);
+      // Remove the task from the list
+      setTasks(tasks.filter(task => task.id !== taskId));
+      alert("Task deleted successfully!");
+    } catch (err: any) {
+      setError(err.message || "Failed to delete task");
     }
   };
 
@@ -256,13 +282,12 @@ export default function ProjectDetailPage() {
           </form>
         </div>
       ) : (
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Tasks</h2>
-          
+        <>
           {/* Create Task Form */}
-          <div className="mb-6 p-4 border rounded">
-            <h3 className="text-xl font-medium mb-3">Add New Task</h3>
-            <form onSubmit={handleCreateTask} className="space-y-4">
+          <div className="mb-8 p-6 border rounded-lg">
+            <h2 className="text-2xl font-semibold mb-4">Create New Task</h2>
+            {error && <p className="text-red-500 mb-4">{error}</p>}
+            <form onSubmit={handleCreateTask} className="space-y-4 max-w-2xl">
               <div>
                 <label htmlFor="taskTitle" className="block text-sm font-medium text-gray-700 mb-1">
                   Task Title *
@@ -286,7 +311,7 @@ export default function ProjectDetailPage() {
                   value={taskDescription}
                   onChange={(e) => setTaskDescription(e.target.value)}
                   className="w-full border border-gray-300 p-2 rounded"
-                  rows={2}
+                  rows={3}
                 />
               </div>
               
@@ -299,45 +324,47 @@ export default function ProjectDetailPage() {
               </button>
             </form>
           </div>
-          
+
           {/* Tasks List */}
-          {tasks.length === 0 ? (
-            <div className="text-center py-8 border-2 border-dashed rounded">
-              <p className="text-gray-500">No tasks yet</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {tasks.map((task) => (
-                <div key={task.id} className="border rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-2">{task.title}</h3>
-                  <p className="text-gray-600 mb-3">{task.description || "No description"}</p>
-                  <div className="flex justify-between text-sm text-gray-500 mb-3">
-                    <span>Status: {task.status || "OPEN"}</span>
-                    <span>Created {new Date(task.createdAt).toLocaleDateString()}</span>
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">Tasks</h2>
+            {tasks.length === 0 ? (
+              <p className="text-gray-500">No tasks yet. Create your first task above!</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {tasks.map((task) => (
+                  <div key={task.id} className="border rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-2">{task.title}</h3>
+                    <p className="text-gray-600 mb-3">{task.description || "No description provided"}</p>
+                    <div className="flex justify-between items-center">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        task.status === 'OPEN' ? 'bg-yellow-100 text-yellow-800' :
+                        task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {task.status.replace('_', ' ')}
+                      </span>
+                      <div className="space-x-2">
+                        <button 
+                          onClick={() => router.push(`/tasks?page=${task.id}`)}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => router.push(`/tasks/${task.id}`)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                    >
-                      Edit Task
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this task?")) {
-                          setTasks(tasks.filter(t => t.id !== task.id));
-                        }
-                      }}
-                      className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                    >
-                      Delete Task
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

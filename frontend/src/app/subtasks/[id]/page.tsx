@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
-import { getData, postData } from '../../../lib/api';
+import { getData, postData, putData, deleteData } from '../../../lib/api';
 
 interface Subtask {
-  id: number;
+  id: string;  // Changed from number to string to match backend UUIDs
   title: string;
   status: string;
-  taskId: number;
+  taskId: string;  // Changed from number to string to match backend UUIDs
   createdAt: string;
 }
 
@@ -43,21 +43,12 @@ export default function SubtaskDetailPage() {
 
   const fetchSubtaskData = async () => {
     try {
-      // For now, we'll simulate subtask data since we don't have a real API endpoint
-      // In a real implementation, you would fetch from `/subtasks/${subtaskId}`
-      setTimeout(() => {
-        const mockSubtask: Subtask = {
-          id: Number(subtaskId),
-          title: 'Sample Subtask',
-          status: 'OPEN',
-          taskId: 1,
-          createdAt: '2025-12-14'
-        };
-        setSubtask(mockSubtask);
-        setSubtaskTitle(mockSubtask.title);
-        setSubtaskStatus(mockSubtask.status);
-        setLoading(false);
-      }, 500);
+      // Fetch real subtask data from the API
+      const response = await getData(`/subtasks/${subtaskId}`) as Subtask;
+      setSubtask(response);
+      setSubtaskTitle(response.title);
+      setSubtaskStatus(response.status);
+      setLoading(false);
     } catch (err: any) {
       setError(err.message || "Failed to load subtask data");
       setLoading(false);
@@ -70,20 +61,15 @@ export default function SubtaskDetailPage() {
     setError("");
 
     try {
-      // For now, we'll simulate saving since we don't have a real API endpoint
-      // In a real implementation, you would POST to `/subtasks/${subtaskId}`
-      setTimeout(() => {
-        const updatedSubtask: Subtask = {
-          id: Number(subtaskId),
-          title: subtaskTitle,
-          status: subtaskStatus,
-          taskId: subtask?.taskId || 1,
-          createdAt: subtask?.createdAt || '2025-12-14'
-        };
-        setSubtask(updatedSubtask);
-        alert("Subtask updated successfully!");
-        setSaving(false);
-      }, 500);
+      // Save subtask data to the API using PUT method
+      const response = await putData(`/subtasks/${subtaskId}`, {
+        title: subtaskTitle,
+        status: subtaskStatus
+      }) as Subtask;
+      
+      setSubtask(response);
+      alert("Subtask updated successfully!");
+      setSaving(false);
     } catch (err: any) {
       setError(err.message || "Failed to update subtask");
       setSaving(false);
@@ -96,12 +82,11 @@ export default function SubtaskDetailPage() {
     }
 
     try {
-      // For now, we'll simulate deletion since we don't have a real API endpoint
-      // In a real implementation, you would POST to `/subtasks/${subtaskId}/delete`
-      setTimeout(() => {
-        alert("Subtask deleted successfully!");
-        router.push("/subtasks");
-      }, 500);
+      // Delete subtask using the API
+      await deleteData(`/subtasks/${subtaskId}`);
+      alert("Subtask deleted successfully!");
+      // Redirect back to tasks page
+      router.push("/tasks");
     } catch (err: any) {
       setError(err.message || "Failed to delete subtask");
     }
@@ -124,10 +109,10 @@ export default function SubtaskDetailPage() {
         <h1 className="text-3xl font-bold mb-4">Error</h1>
         <p className="text-red-500">{error}</p>
         <button 
-          onClick={() => router.push("/subtasks")}
+          onClick={() => router.push("/tasks")}
           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
-          Back to Subtasks
+          Back to Tasks
         </button>
       </div>
     );
@@ -142,10 +127,10 @@ export default function SubtaskDetailPage() {
     <div className="p-6">
       <div className="mb-6">
         <button 
-          onClick={() => router.push("/subtasks")}
+          onClick={() => router.push("/tasks")}
           className="text-blue-600 hover:text-blue-800 mb-4"
         >
-          ← Back to Subtasks
+          ← Back to Tasks
         </button>
         <h1 className="text-3xl font-bold mb-2">Edit Subtask</h1>
       </div>
@@ -178,8 +163,8 @@ export default function SubtaskDetailPage() {
             >
               <option value="OPEN">Open</option>
               <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
+              <option value="DONE">Completed</option>
+              <option value="BLOCKED">Blocked</option>
             </select>
           </div>
           
@@ -194,7 +179,7 @@ export default function SubtaskDetailPage() {
             
             <button
               type="button"
-              onClick={() => router.push("/subtasks")}
+              onClick={() => router.push("/tasks")}
               className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
             >
               Cancel

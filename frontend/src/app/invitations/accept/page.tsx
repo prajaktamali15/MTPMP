@@ -32,7 +32,8 @@ export default function AcceptInvitationPage() {
   const acceptInvitationToken = async (token: string) => {
     try {
       // Accept invitation using the API
-      const response = await postData('/invitations/accept', { token });
+      // We need to call the specific endpoint with the token in the URL
+      const response = await postData(`/invitations/${token}/accept`, {});
       
       if (response.error) {
         throw new Error(response.error);

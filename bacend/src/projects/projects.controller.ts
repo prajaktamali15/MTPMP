@@ -63,13 +63,34 @@ export class ProjectsController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  async createProject(@Body() data: { name: string; description?: string }, @Req() req: RequestWithUser) {
-    return this.prisma.project.create({
+  async createProject(
+    @Body() data: { name: string; description?: string },
+    @Req() req: RequestWithUser,
+  ) {
+    // Create the project
+    const project = await this.prisma.project.create({
       data: {
         ...data,
         organizationId: req.orgId,
       },
     });
+    
+    // Create activity log
+    await this.prisma.activityLog.create({
+      data: {
+        action: 'created',
+        description: `Created project "${project.name}"`,
+        userId: req.user.userId,
+        projectId: project.id,
+      },
+      include: {
+        user: true,
+        project: true,
+        task: true,
+      },
+    });
+    
+    return project;
   }
 
   @Put(':id')
@@ -91,12 +112,30 @@ export class ProjectsController {
       throw new BadRequestException('Project not found or access denied');
     }
 
-    return this.prisma.project.update({
+    // Update the project
+    const updatedProject = await this.prisma.project.update({
       where: {
         id: project.id,
       },
       data,
     });
+    
+    // Create activity log
+    await this.prisma.activityLog.create({
+      data: {
+        action: 'updated',
+        description: `Updated project "${updatedProject.name}"`,
+        userId: req.user.userId,
+        projectId: updatedProject.id,
+      },
+      include: {
+        user: true,
+        project: true,
+        task: true,
+      },
+    });
+    
+    return updatedProject;
   }
 
   @Delete(':id')
@@ -114,10 +153,31 @@ export class ProjectsController {
       throw new BadRequestException('Project not found or access denied');
     }
 
-    return this.prisma.project.delete({
+    // Store project name for activity log before deleting
+    const projectName = project.name;
+    
+    // Delete the project
+    const deletedProject = await this.prisma.project.delete({
       where: {
         id: project.id,
       },
     });
+    
+    // Create activity log
+    await this.prisma.activityLog.create({
+      data: {
+        action: 'deleted',
+        description: `Deleted project "${projectName}"`,
+        userId: req.user.userId,
+        projectId: deletedProject.id,
+      },
+      include: {
+        user: true,
+        project: true,
+        task: true,
+      },
+    });
+    
+    return deletedProject;
   }
 }
