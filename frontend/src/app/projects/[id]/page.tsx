@@ -19,8 +19,17 @@ interface Task {
   title: string;
   description: string;
   status: string;
+  priority?: number;  // Add priority field
+  dueDate?: string;  // Add dueDate field
   projectId: string;  // Changed from number to string to match backend UUIDs
   createdAt: string;
+}
+
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
 }
 
 export default function ProjectDetailPage() {
@@ -36,7 +45,13 @@ export default function ProjectDetailPage() {
   
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
+  const [taskPriority, setTaskPriority] = useState("2"); // New priority state
+  const [taskDueDate, setTaskDueDate] = useState(""); // New due date state
   const [creatingTask, setCreatingTask] = useState(false);
+  
+  // Assignee state
+  const [assignees, setAssignees] = useState<Member[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState("");
   
   // Project settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -71,6 +86,18 @@ export default function ProjectDetailPage() {
       // Filter tasks by projectId (both are now strings)
       const projectTasks = tasksResponse.filter((task) => task.projectId === projectId);
       setTasks(projectTasks);
+      
+      // Fetch organization members for assignee dropdown
+      const orgId = localStorage.getItem('current_org_id');
+      if (orgId) {
+        try {
+          const membersData = await getData(`/organizations/${orgId}/members`) as Member[];
+          setAssignees(membersData);
+        } catch (memberError) {
+          console.error('Error loading members:', memberError);
+          setAssignees([]);
+        }
+      }
     } catch (err: any) {
       console.error('Error fetching project data:', err);
       // If it's a "Project not found" error, show a friendly message
@@ -90,17 +117,29 @@ export default function ProjectDetailPage() {
     setError("");
 
     try {
-      const response = await postData("/tasks", {
+      const taskData: any = {
         title: taskTitle,
         description: taskDescription,
+        priority: parseInt(taskPriority), // Convert priority to number
+        dueDate: taskDueDate || null, // Add due date
         projectId: projectId  // Send as string, not converted to number
-      }) as Task;
+      };
+      
+      // Add assignee if selected
+      if (selectedAssignee) {
+        taskData.assigneeId = selectedAssignee;
+      }
+      
+      const response = await postData("/tasks", taskData) as Task;
       
       // Add new task to the list
       setTasks([...tasks, response]);
       // Reset form
       setTaskTitle("");
       setTaskDescription("");
+      setTaskPriority("2"); // Reset priority to default (Medium = 2)
+      setTaskDueDate(""); // Reset due date
+      setSelectedAssignee("");
     } catch (err: any) {
       setError(err.message || "Failed to create task");
     } finally {
@@ -315,6 +354,64 @@ export default function ProjectDetailPage() {
                 />
               </div>
               
+              {/* Priority Field */}
+              <div>
+                <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+                  Priority
+                </label>
+                <select
+                  id="priority"
+                  value={taskPriority}
+                  onChange={(e) => setTaskPriority(e.target.value)}
+                  className="w-full border border-gray-300 p-2 rounded"
+                >
+                  <option value="1">Low</option>
+                  <option value="2">Medium</option>
+                  <option value="3">High</option>
+                  <option value="4">Urgent</option>
+                </select>
+              </div>
+              
+              {/* Due Date Field */}
+              <div>
+                <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  id="dueDate"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="w-full border border-gray-300 p-2 rounded"
+                />
+              </div>
+              
+              {/* Assignee Field */}
+              <div>
+                <label htmlFor="assignee" className="block text-sm font-medium text-gray-700 mb-1">
+                  Assignee
+                </label>
+                <select
+                  id="assignee"
+                  value={selectedAssignee}
+                  onChange={(e) => setSelectedAssignee(e.target.value)}
+                  className="w-full border border-gray-300 p-2 rounded"
+                >
+                  <option value="">None (Unassigned)</option>
+                  {assignees.map((assignee) => (
+                    <option key={assignee.id} value={assignee.id}>
+                      {assignee.name || assignee.email}
+                      {assignee.email === user?.email ? " (You)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {selectedAssignee && (
+                  <p className="mt-1 text-sm text-gray-500">
+                    {selectedAssignee === user?.email ? "This task will be assigned to you" : "This task will be assigned to the selected user"}
+                  </p>
+                )}
+              </div>
+              
               <button
                 type="submit"
                 disabled={creatingTask}
@@ -336,7 +433,7 @@ export default function ProjectDetailPage() {
                   <div key={task.id} className="border rounded-lg p-4">
                     <h3 className="font-semibold text-lg mb-2">{task.title}</h3>
                     <p className="text-gray-600 mb-3">{task.description || "No description provided"}</p>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-2">
                       <span className={`px-2 py-1 rounded text-xs ${
                         task.status === 'OPEN' ? 'bg-yellow-100 text-yellow-800' :
                         task.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
@@ -344,20 +441,47 @@ export default function ProjectDetailPage() {
                       }`}>
                         {task.status.replace('_', ' ')}
                       </span>
-                      <div className="space-x-2">
-                        <button 
-                          onClick={() => router.push(`/tasks?page=${task.id}`)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          View
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteTask(task.id)}
-                          className="text-red-600 hover:text-red-800 text-sm"
-                        >
-                          Delete
-                        </button>
+                      {task.priority && (
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          task.priority === 1 ? 'bg-gray-100 text-gray-800' :
+                          task.priority === 2 ? 'bg-blue-100 text-blue-800' :
+                          task.priority === 3 ? 'bg-orange-100 text-orange-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {task.priority === 1 ? 'Low' : 
+                           task.priority === 2 ? 'Medium' : 
+                           task.priority === 3 ? 'High' : 'Urgent'}
+                        </span>
+                      )}
+                    </div>
+                    {task.dueDate && (
+                      <div className="text-sm text-gray-500 mb-2">
+                        Due: {new Date(task.dueDate).toLocaleDateString()}
                       </div>
+                    )}
+                    {task.assignee && (
+                      <div className="text-sm mb-2">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                          Assigned to: {task.assignee.name || task.assignee.email}
+                          {task.assignee.email === user?.email && (
+                            <span className="ml-1 px-1 bg-green-100 text-green-800 rounded">You</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-end space-x-2">
+                      <button 
+                        onClick={() => router.push(`/tasks?page=${task.id}`)}
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        View
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))}

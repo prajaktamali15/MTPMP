@@ -80,6 +80,8 @@ export class TasksController {
     data: {
       title: string;
       description?: string;
+      priority?: number;
+      dueDate?: string;
       projectId: string;
       assigneeId?: string;
     },
@@ -108,6 +110,8 @@ export class TasksController {
         title: data.title,
         description: data.description,
         status: TaskStatus.OPEN,
+        priority: data.priority,
+        dueDate: data.dueDate ? new Date(data.dueDate + 'T00:00:00') : null,
         projectId: data.projectId,
         assigneeId: data.assigneeId,
       },
@@ -136,6 +140,8 @@ export class TasksController {
       title?: string;
       description?: string;
       status?: TaskStatus;
+      priority?: number;
+      dueDate?: string;
       assigneeId?: string;
     },
     @Req() req: RequestWithUser,
@@ -162,7 +168,10 @@ export class TasksController {
       where: {
         id: task.id,
       },
-      data,
+      data: {
+        ...data,
+        dueDate: data.dueDate !== undefined ? (data.dueDate ? new Date(data.dueDate + 'T00:00:00') : null) : undefined,
+      },
     });
     
     // Create activity log

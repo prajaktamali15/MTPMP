@@ -2,70 +2,106 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { getData, postData } from '@/lib/api';
+import { useRouter, useParams } from "next/navigation";
+import { getData, postData } from "@/lib/api";
 
 export default function ProjectDetailPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { id } = useParams(); // Get project ID from URL params
   
+  // Project state
   const [project, setProject] = useState<any>(null);
-  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
+  // Tasks state
+  const [tasks, setTasks] = useState<any[]>([]);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [creatingTask, setCreatingTask] = useState(false);
-
-  if (!user) {
-    router.push("/auth/login");
-    return null;
-  }
-
-  // Load project data
+  
+  // Assignee state
+  const [assignees, setAssignees] = useState<any[]>([]);
+  const [selectedAssignee, setSelectedAssignee] = useState("");
+  
+  // Load project details and members
   useEffect(() => {
-    loadProjectData();
-  }, []);
-
+    console.log('Project detail page mounted');
+    console.log('User:', user);
+    console.log('Project ID from params:', id);
+    if (user && id) {
+      loadProjectData();
+    }
+  }, [user, id]);
+  
   const loadProjectData = async () => {
     try {
       setLoading(true);
-      // In a real implementation, you would get the project ID from URL params
-      // For now, we'll load the first project as an example
-      const projects = await getData('/projects');
-      if (projects && projects.length > 0) {
-        const project = projects[0];
-        setProject(project);
-        
-        // Load tasks for this project
-        const projectTasks = await getData(`/tasks?projectId=${project.id}`);
-        setTasks(projectTasks);
+      console.log('Loading project data for ID:', id);
+      
+      // Load project details
+      const projectData = await getData(`/projects/${id}`);
+      console.log('Project data loaded:', projectData);
+      setProject(projectData);
+      
+      // Load project tasks
+      const allTasksData = await getData(`/tasks`);
+      console.log('All tasks data loaded:', allTasksData);
+      // Filter tasks for this specific project
+      const projectTasks = allTasksData.filter((task: any) => task.projectId === id);
+      console.log('Filtered project tasks:', projectTasks);
+      setTasks(projectTasks);
+      
+      // Load organization members for assignee dropdown
+      const orgId = localStorage.getItem('current_org_id');
+      console.log('Current org ID:', orgId);
+      if (orgId) {
+        try {
+          const membersData = await getData(`/organizations/${orgId}/members`);
+          console.log('Members data:', membersData);
+          setAssignees(membersData);
+        } catch (memberError) {
+          console.error('Error loading members:', memberError);
+          setAssignees([]);
+        }
+      } else {
+        console.log('No org ID found in localStorage');
       }
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to load project data:', error);
-      setError("Failed to load project data");
+      
+      setError("");
+    } catch (err: any) {
+      console.error('Error loading project data:', err);
+      setError(err.message || "Failed to load project data");
+    } finally {
       setLoading(false);
     }
   };
-
+  
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingTask(true);
     setError("");
 
     try {
-      // Create task via API
-      const newTask = await postData('/tasks', {
+      // Create task via API with assignee
+      const taskData: any = {
         title: taskTitle,
         description: taskDescription,
         projectId: project?.id
-      });
+      };
+      
+      // Add assignee if selected
+      if (selectedAssignee) {
+        taskData.assigneeId = selectedAssignee;
+      }
+      
+      const newTask = await postData('/tasks', taskData);
       
       setTasks([...tasks, newTask]);
       setTaskTitle("");
       setTaskDescription("");
+      setSelectedAssignee("");
       setCreatingTask(false);
     } catch (error) {
       console.error('Failed to create task:', error);
@@ -143,6 +179,38 @@ export default function ProjectDetailPage() {
                 className="w-full border border-gray-300 p-2 rounded"
                 rows={2}
               />
+            </div>
+            
+            {/* Debug info */}
+            <div className="text-sm text-gray-500">
+              <p>Assignees count: {assignees.length}</p>
+              <p>Selected assignee: {selectedAssignee || 'None'}</p>
+            </div>
+            
+            {/* Assignee Field */}
+            <div>
+              <label htmlFor="assignee" className="block text-sm font-medium text-gray-700 mb-1">
+                Assign To
+              </label>
+              <select
+                id="assignee"
+                value={selectedAssignee}
+                onChange={(e) => setSelectedAssignee(e.target.value)}
+                className="w-full border border-gray-300 p-2 rounded"
+              >
+                <option value="">Select assignee (optional)</option>
+                {assignees.length > 0 ? (
+                  assignees.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name || member.email}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>
+                    No members available
+                  </option>
+                )}
+              </select>
             </div>
             
             <button

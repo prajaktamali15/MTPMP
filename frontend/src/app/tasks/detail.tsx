@@ -290,6 +290,31 @@ export default function TaskDetailPage() {
                 </div>
               </div>
               
+              {task?.priority && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Priority</label>
+                  <div className="mt-1">
+                    <span className={`px-2 py-1 rounded inline-block ${
+                      task.priority === 1 ? 'bg-gray-100 text-gray-800' :
+                      task.priority === 2 ? 'bg-blue-100 text-blue-800' :
+                      task.priority === 3 ? 'bg-orange-100 text-orange-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {task.priority === 1 ? 'Low' : 
+                       task.priority === 2 ? 'Medium' : 
+                       task.priority === 3 ? 'High' : 'Urgent'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {task?.dueDate && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Due Date</label>
+                  <p className="mt-1">{new Date(task.dueDate).toLocaleDateString()}</p>
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700">Created</label>
                 <p className="mt-1">{task?.createdAt ? new Date(task.createdAt).toLocaleDateString() : "Unknown"}</p>

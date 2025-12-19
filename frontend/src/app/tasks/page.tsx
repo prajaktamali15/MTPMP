@@ -1,9 +1,27 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useRouter, useSearchParams } from "next/navigation";
-import { getData, postData, putData, deleteData } from "@/lib/api";
+import { useAuth } from '@/context/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { getData, postData, putData, deleteData } from '@/lib/api';
+
+// Function to decode JWT token
+const decodeJWT = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error decoding JWT:', error);
+    return null;
+  }
+};
 
 export default function TasksPage() {
   const { user } = useAuth();
@@ -28,6 +46,20 @@ export default function TasksPage() {
   
   // State for tasks list view
   const [tasks, setTasks] = useState<any[]>([]);
+  const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
+  const [showAssignedOnly, setShowAssignedOnly] = useState(false);
+  
+  // Decode user email from JWT token
+  const getUserEmail = () => {
+    if (!user?.token) return null;
+    try {
+      const decoded: any = decodeJWT(user.token);
+      return decoded.email;
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
+    }
+  };
 
   // Get task ID from URL params
   useEffect(() => {
@@ -79,13 +111,22 @@ export default function TasksPage() {
     try {
       setLoading(true);
       const tasksData = await getData('/tasks');
+      
+      // Filter tasks assigned to current user
+      const userEmail = getUserEmail();
+      const assignedToMe = tasksData.filter((task: any) => 
+        task.assignee?.email === userEmail
+      );
+      
       setTasks(tasksData);
+      setAssignedTasks(assignedToMe);
       setError("");
     } catch (err: any) {
       console.error('Error loading tasks list:', err);
       setError(err.message || "Failed to load tasks");
       // Don't use mock data
       setTasks([]);
+      setAssignedTasks([]);
     } finally {
       setLoading(false);
     }
@@ -317,17 +358,33 @@ export default function TasksPage() {
 
   // If no task ID, show tasks list
   if (!taskId) {
+    const tasksToShow = showAssignedOnly ? assignedTasks : tasks;
+    
     return (
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Tasks</h1>
-          <button 
-            onClick={() => router.push('/projects')}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Create Task
-          </button>
+          <div className="flex space-x-4">
+            <button 
+              onClick={() => setShowAssignedOnly(!showAssignedOnly)}
+              className={`px-4 py-2 rounded ${showAssignedOnly ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+            >
+              {showAssignedOnly ? 'Show All Tasks' : 'Show My Tasks'}
+            </button>
+            <button 
+              onClick={() => router.push('/projects')}
+              className="bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Create Task
+            </button>
+          </div>
         </div>
+        
+        {showAssignedOnly && (
+          <div className="mb-4 p-3 bg-blue-100 text-blue-800 rounded">
+            Showing {assignedTasks.length} task{assignedTasks.length !== 1 ? 's' : ''} assigned to you
+          </div>
+        )}
         
         <div className="overflow-x-auto">
           <table className="min-w-full border">
@@ -335,15 +392,39 @@ export default function TasksPage() {
               <tr className="bg-gray-100">
                 <th className="py-2 px-4 border">Task</th>
                 <th className="py-2 px-4 border">Project</th>
+                <th className="py-2 px-4 border">Priority</th>
+                <th className="py-2 px-4 border">Due Date</th>
                 <th className="py-2 px-4 border">Status</th>
+                <th className="py-2 px-4 border">Assigned To</th>
                 <th className="py-2 px-4 border">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {tasksToShow.map((task) => (
                 <tr key={task.id}>
                   <td className="py-2 px-4 border">{task.title}</td>
                   <td className="py-2 px-4 border">{task.project?.name || task.project || "Unknown Project"}</td>
+                  <td className="py-2 px-4 border">
+                    {task.priority ? (
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        task.priority === 1 ? 'bg-gray-100 text-gray-800' :
+                        task.priority === 2 ? 'bg-blue-100 text-blue-800' :
+                        task.priority === 3 ? 'bg-orange-100 text-orange-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {task.priority === 1 ? 'Low' : 
+                         task.priority === 2 ? 'Medium' : 
+                         task.priority === 3 ? 'High' : 'Urgent'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </td>
+                  <td className="py-2 px-4 border">
+                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </td>
                   <td className="py-2 px-4 border">
                     <span className={`px-2 py-1 rounded ${
                       task.status === 'DONE' ? 'bg-green-200' :
@@ -351,6 +432,15 @@ export default function TasksPage() {
                     }`}>
                       {task.status.replace('_', ' ')}
                     </span>
+                  </td>
+                  <td className="py-2 px-4 border">
+                    {task.assignee ? (
+                      <span className="text-sm">
+                        {task.assignee.name || task.assignee.email}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 text-sm">Unassigned</span>
+                    )}
                   </td>
                   <td className="py-2 px-4 border">
                     <button 
@@ -364,6 +454,16 @@ export default function TasksPage() {
               ))}
             </tbody>
           </table>
+          
+          {tasksToShow.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-500">
+                {showAssignedOnly 
+                  ? "You don't have any assigned tasks yet." 
+                  : "No tasks found."}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -485,6 +585,40 @@ export default function TasksPage() {
                   </select>
                 </div>
               </div>
+              
+              {task?.assignee && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Assigned To</label>
+                  <div className="mt-1 flex items-center">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                      {task.assignee.name || task.assignee.email}
+                    </span>
+                    {task.assignee.email === getUserEmail() && (
+                      <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                        Assigned to you
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {task?.priority && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Priority</label>
+                  <div className="mt-1">
+                    <span className={`px-2 py-1 rounded inline-block ${
+                      task.priority === 1 ? 'bg-gray-100 text-gray-800' :
+                      task.priority === 2 ? 'bg-blue-100 text-blue-800' :
+                      task.priority === 3 ? 'bg-orange-100 text-orange-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {task.priority === 1 ? 'Low' : 
+                       task.priority === 2 ? 'Medium' : 
+                       task.priority === 3 ? 'High' : 'Urgent'}
+                    </span>
+                  </div>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700">Created</label>
