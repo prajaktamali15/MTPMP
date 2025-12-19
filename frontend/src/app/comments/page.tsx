@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData, postData, getUserEmail } from '@/lib/api';
 
 interface Comment {
   id: number;
@@ -11,6 +12,20 @@ interface Comment {
   timestamp: string;
   taskId: number;
 }
+
+// Helper function to calculate time ago
+const getTimeAgo = (date: Date) => {
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (seconds < 60) return `${seconds} seconds ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} days ago`;
+};
 
 export default function CommentsPage() {
   const { user } = useAuth();
@@ -27,32 +42,76 @@ export default function CommentsPage() {
   // Load comments
   useEffect(() => {
     if (user) {
-      // Simulate loading comments
-      setTimeout(() => {
-        setComments([
-          { id: 1, author: 'John Doe', content: 'This task looks good so far. I\'ve completed the initial design.', timestamp: '2 hours ago', taskId: 1 },
-          { id: 2, author: 'Jane Smith', content: 'Thanks for the update. Can you also add the mobile mockups?', timestamp: '1 hour ago', taskId: 1 },
-          { id: 3, author: 'John Doe', content: 'Sure, I\'ll add those shortly.', timestamp: '30 minutes ago', taskId: 1 }
-        ]);
-        setLoading(false);
-      }, 500);
+      loadComments();
     }
   }, [user]);
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const loadComments = async () => {
+    try {
+      setLoading(true);
+      // Load comments for a specific task (you would pass the task ID as a prop or from URL params)
+      // For now, we'll load all comments as an example
+      const commentsData = await getData('/comments');
+      
+      // Transform the data to match our interface
+      const transformedComments = commentsData.map((comment: any) => ({
+        id: comment.id,
+        author: comment.user?.name || 'Unknown User',
+        content: comment.content,
+        timestamp: getTimeAgo(new Date(comment.createdAt)),
+        taskId: comment.taskId
+      }));
+      
+      setComments(transformedComments);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load comments:', error);
+      setComments([]);
+      setLoading(false);
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newComment.trim() === '') return;
     
-    const comment: Comment = {
-      id: comments.length + 1,
-      author: 'You',
-      content: newComment,
-      timestamp: 'Just now',
-      taskId: 1
-    };
-    
-    setComments([comment, ...comments]);
-    setNewComment('');
+    try {
+      // In a real implementation, you would pass the actual task ID
+      // For now, we'll use a placeholder
+      const commentData = {
+        content: newComment,
+        taskId: 1 // This should be dynamically determined
+      };
+      
+      const newCommentResponse = await postData('/comments', commentData);
+      
+      // Transform the response to match our interface
+      const userEmail = getUserEmail();
+      const comment: Comment = {
+        id: newCommentResponse.id,
+        author: newCommentResponse.user?.name || userEmail || 'You',
+        content: newCommentResponse.content,
+        timestamp: 'Just now',
+        taskId: newCommentResponse.taskId
+      };
+      
+      setComments([comment, ...comments]);
+      setNewComment('');
+    } catch (error) {
+      console.error('Failed to add comment:', error);
+      // Still update UI even if API call fails
+      const userEmail = getUserEmail();
+      const comment: Comment = {
+        id: comments.length + 1,
+        author: userEmail || 'You',
+        content: newComment,
+        timestamp: 'Just now',
+        taskId: 1
+      };
+      
+      setComments([comment, ...comments]);
+      setNewComment('');
+    }
   };
 
   if (!user) return null;

@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const refreshToken = localStorage.getItem('refresh_token');
     if (accessToken && refreshToken) {
       setUser({ token: accessToken });
+      // No user name handling needed
     }
   }, []);
 
@@ -43,8 +44,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const orgs = await getData('/organizations');
 
       if (orgs && orgs.length > 0) {
-        // User belongs to an organization, store the org ID and go to dashboard
+        // User belongs to an organization, store the org ID
         localStorage.setItem('current_org_id', orgs[0].id);
+        // Redirect to dashboard
         router.push('/dashboard');
       } else {
         // User doesn't belong to any organization, redirect to create org page
@@ -52,8 +54,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Error checking user organization:', error);
-      // If there's an error, redirect to create organization page
-      router.push('/org/create');
+      // If there's an error, redirect to dashboard anyway
+      router.push('/dashboard');
     }
   };
 
@@ -66,8 +68,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const orgs = await getData('/organizations');
 
       if (orgs && orgs.length > 0) {
-        // User belongs to an organization, store the org ID and go to dashboard
+        // User belongs to an organization, store the org ID
         localStorage.setItem('current_org_id', orgs[0].id);
+        // Redirect to dashboard
         router.push('/dashboard');
       } else {
         // User doesn't belong to any organization, redirect to create org page
@@ -75,8 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Error checking user organization:', error);
-      // If there's an error, redirect to create organization page
-      router.push('/org/create');
+      // If there's an error, redirect to dashboard anyway
+      router.push('/dashboard');
     }
   };
 

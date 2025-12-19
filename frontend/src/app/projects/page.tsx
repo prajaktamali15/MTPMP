@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getData, postData, deleteData } from '@/lib/api';
+import { getData, postData, putData, deleteData } from '@/lib/api';
 
 interface Project {
   id: string;
@@ -68,7 +68,7 @@ export default function ProjectsPage() {
     try {
       if (editingProject) {
         // Update existing project
-        const updatedProject = await postData(`/projects/${editingProject.id}`, formData);
+        const updatedProject = await putData(`/projects/${editingProject.id}`, formData);
         setProjects(projects.map(p => 
           p.id === editingProject.id 
             ? { ...updatedProject, updatedAt: new Date().toISOString().split('T')[0] } 

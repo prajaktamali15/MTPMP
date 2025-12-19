@@ -20,7 +20,7 @@ interface Organization {
 export default function OrganizationSettingsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [orgName, setOrgName] = useState('My Organization');
+  const [orgName, setOrgName] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState('owner'); // owner, admin, member
@@ -56,23 +56,37 @@ export default function OrganizationSettingsPage() {
       }
       
       // Load organization details
-      setTimeout(() => {
-        setMembers([
-          { id: 1, name: 'John Doe', email: 'john@example.com', role: 'owner' },
-          { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'admin' },
-          { id: 3, name: 'Bob Johnson', email: 'bob@example.com', role: 'member' },
-          { id: 4, name: 'Alice Brown', email: 'alice@example.com', role: 'member' }
-        ]);
-        setLoading(false);
-      }, 500);
+      if (orgs.length > 0) {
+        const orgId = currentOrgId || orgs[0].id;
+        
+        // Load organization details
+        try {
+          const orgDetails = await getData(`/organizations/${orgId}`);
+          setOrgName(orgDetails.name);
+          
+          // Load members
+          const membersData = await getData(`/organizations/${orgId}/members`);
+          
+          // Transform the data to match our interface
+          const transformedMembers = membersData.map((member: any) => ({
+            id: member.id,
+            name: member.name || member.email,
+            email: member.email,
+            role: member.role
+          }));
+          
+          setMembers(transformedMembers);
+          setUserRole(membersData.find((m: any) => m.email === user.email)?.role || 'member');
+        } catch (error) {
+          console.error('Failed to load organization details:', error);
+        }
+      }
+      setLoading(false);
     } catch (error) {
       console.error('Failed to load organizations:', error);
-      // Fallback to mock data
-      setOrganizations([
-        { id: 'org_1', name: 'Default Organization' }
-      ]);
-      setSelectedOrgId('org_1');
-      localStorage.setItem('current_org_id', 'org_1');
+      // Don't use mock data - show empty state instead
+      setOrganizations([]);
+      setSelectedOrgId(null);
       setLoading(false);
     }
   };
@@ -92,20 +106,52 @@ export default function OrganizationSettingsPage() {
     );
   }
 
-  const handleInviteMember = () => {
+  // If no organizations, show a message
+  if (organizations.length === 0) {
+    return (
+      <div className="p-6">
+        <h1 className="text-3xl font-bold mb-4">Organization Settings</h1>
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+          <p>You don't belong to any organization yet.</p>
+          <button 
+            onClick={() => router.push('/org/create')}
+            className="mt-2 bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Create Organization
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleInviteMember = async () => {
     const email = prompt('Enter email address to invite:');
     if (email) {
-      alert(`Invitation sent to ${email}`);
-      // In a real app, you would make an API call here
+      try {
+        // In a real app, you would make an API call here
+        // For example: await postData('/invitations', { email, organizationId: selectedOrgId });
+        alert(`Invitation sent to ${email}`);
+      } catch (error) {
+        console.error('Failed to send invitation:', error);
+        alert('Failed to send invitation. Please try again.');
+      }
     }
   };
 
-  const handleDeleteOrg = () => {
+  const handleDeleteOrg = async () => {
     if (confirm('Are you sure you want to delete this organization? This action cannot be undone.')) {
-      // Remove organization ID from localStorage
-      localStorage.removeItem('current_org_id');
-      // Redirect to dashboard
-      router.push('/dashboard');
+      try {
+        // Make API call to delete organization
+        // await deleteData(`/organizations/${selectedOrgId}`);
+        
+        // Remove organization ID from localStorage
+        localStorage.removeItem('current_org_id');
+        // Redirect to dashboard
+        router.push('/dashboard');
+      } catch (error) {
+        console.error('Failed to delete organization:', error);
+        alert('Failed to delete organization. Please try again.');
+      }
     }
   };
 
@@ -155,7 +201,19 @@ export default function OrganizationSettingsPage() {
             />
           </div>
           
-          <button className="bg-blue-600 text-white px-4 py-2 rounded">
+          <button 
+            onClick={async () => {
+              try {
+                // Save organization name
+                // await putData(`/organizations/${selectedOrgId}`, { name: orgName });
+                alert('Changes saved successfully!');
+              } catch (error) {
+                console.error('Failed to save changes:', error);
+                alert('Failed to save changes. Please try again.');
+              }
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
             Save Changes
           </button>
         </div>

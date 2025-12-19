@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { postData } from '@/lib/api';
 
 export default function SendInvitationPage() {
   const { user } = useAuth();
@@ -19,12 +20,17 @@ export default function SendInvitationPage() {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate sending invitation
-    setTimeout(() => {
+    try {
+      // Send invitation via API
+      await postData('/invitations', {
+        email,
+        role
+      });
+      
       setLoading(false);
       setSuccess(true);
       setMessage(`Invitation sent to ${email} with ${role} role.`);
@@ -36,7 +42,11 @@ export default function SendInvitationPage() {
         setSuccess(false);
         setMessage('');
       }, 3000);
-    }, 1000);
+    } catch (error) {
+      console.error('Failed to send invitation:', error);
+      setLoading(false);
+      setMessage('Failed to send invitation. Please try again.');
+    }
   };
 
   return (
@@ -126,29 +136,7 @@ export default function SendInvitationPage() {
       
       <div className="mt-8 bg-gray-50 rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Pending Invitations</h2>
-        <div className="space-y-3">
-          <div className="flex justify-between items-center p-3 bg-white rounded border">
-            <div>
-              <p className="font-medium">john.doe@example.com</p>
-              <p className="text-sm text-gray-500">Sent 2 days ago</p>
-            </div>
-            <div className="flex space-x-2">
-              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">Pending</span>
-              <button className="text-red-600 hover:text-red-800 text-sm">Resend</button>
-            </div>
-          </div>
-          
-          <div className="flex justify-between items-center p-3 bg-white rounded border">
-            <div>
-              <p className="font-medium">jane.smith@example.com</p>
-              <p className="text-sm text-gray-500">Sent 1 week ago</p>
-            </div>
-            <div className="flex space-x-2">
-              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">Pending</span>
-              <button className="text-red-600 hover:text-red-800 text-sm">Resend</button>
-            </div>
-          </div>
-        </div>
+        <p className="text-gray-500 text-center py-4">No pending invitations</p>
       </div>
     </div>
   );

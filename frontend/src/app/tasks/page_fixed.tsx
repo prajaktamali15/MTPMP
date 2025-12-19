@@ -39,13 +39,8 @@ export default function TasksPage() {
       setTasks(data);
     } catch (error) {
       console.error('Failed to load tasks:', error);
-      // Fallback to mock data
-      setTasks([
-        { id: 1, title: 'Design homepage', status: 'In Progress', project: 'Website Redesign', projectId: 1, description: 'Create wireframes for homepage' },
-        { id: 2, title: 'Setup database', status: 'Completed', project: 'Mobile App', projectId: 2, description: 'Configure PostgreSQL database' },
-        { id: 3, title: 'Create wireframes', status: 'Pending', project: 'Website Redesign', projectId: 1, description: 'Design mockups for all pages' },
-        { id: 4, title: 'Write copy', status: 'Pending', project: 'Marketing Campaign', projectId: 3, description: 'Create content for marketing materials' }
-      ]);
+      // Show empty array instead of mock data
+      setTasks([]);
     } finally {
       setLoading(false);
     }

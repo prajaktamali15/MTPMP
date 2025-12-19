@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData } from '@/lib/api';
 
 interface ActivityLog {
   id: number;
@@ -27,22 +28,33 @@ export default function ActivityLogsPage() {
   // Load activity logs
   useEffect(() => {
     if (user) {
-      // Simulate loading activity logs
-      setTimeout(() => {
-        setLogs([
-          { id: 1, user: 'John Doe', action: 'created', target: 'Project Website Redesign', timestamp: '2025-12-14 10:30 AM', details: 'Created new project with initial setup' },
-          { id: 2, user: 'Jane Smith', action: 'updated', target: 'Task Design homepage', timestamp: '2025-12-14 02:15 PM', details: 'Changed task status to In Progress' },
-          { id: 3, user: 'Bob Johnson', action: 'commented on', target: 'Task Setup database', timestamp: '2025-12-13 11:45 AM', details: 'Added comment about database schema' },
-          { id: 4, user: 'Alice Brown', action: 'completed', target: 'Task Write documentation', timestamp: '2025-12-12 04:20 PM', details: 'Marked task as completed after review' },
-          { id: 5, user: 'You', action: 'assigned', target: 'Task Review design', timestamp: '2025-12-12 09:30 AM', details: 'Assigned task to John Doe for review' },
-          { id: 6, user: 'John Doe', action: 'created', target: 'Project Mobile App', timestamp: '2025-12-11 03:15 PM', details: 'Created new mobile application project' },
-          { id: 7, user: 'Jane Smith', action: 'deleted', target: 'Task Old cleanup', timestamp: '2025-12-11 10:45 AM', details: 'Removed obsolete task from project' },
-          { id: 8, user: 'Bob Johnson', action: 'uploaded', target: 'File design_mockup.pdf', timestamp: '2025-12-10 02:30 PM', details: 'Uploaded design mockup for review' }
-        ]);
-        setLoading(false);
-      }, 500);
+      loadActivityLogs();
     }
   }, [user]);
+
+  const loadActivityLogs = async () => {
+    try {
+      setLoading(true);
+      const logsData = await getData('/activity-logs');
+      
+      // Transform the data to match our interface
+      const transformedLogs = logsData.map((log: any) => ({
+        id: log.id,
+        user: log.user?.name || 'Unknown User',
+        action: log.action,
+        target: log.project?.name || log.task?.title || 'Unknown Target',
+        timestamp: new Date(log.createdAt).toLocaleString(),
+        details: log.details || ''
+      }));
+      
+      setLogs(transformedLogs);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load activity logs:', error);
+      setLogs([]);
+      setLoading(false);
+    }
+  };
 
   if (!user) return null;
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { getData, postData } from '@/lib/api';
 
 export default function ProjectDetailPage() {
   const { user } = useAuth();
@@ -22,45 +23,55 @@ export default function ProjectDetailPage() {
     return null;
   }
 
-  // Simulate loading project data
+  // Load project data
   useEffect(() => {
-    setTimeout(() => {
-      setProject({
-        id: 1,
-        name: "Website Redesign",
-        description: "Complete redesign of company website"
-      });
-      
-      setTasks([
-        { id: 1, title: "Design homepage", status: "In Progress", project: "Website Redesign" },
-        { id: 2, title: "Setup database", status: "Completed", project: "Website Redesign" },
-        { id: 3, title: "Create wireframes", status: "Pending", project: "Website Redesign" }
-      ]);
-      
-      setLoading(false);
-    }, 500);
+    loadProjectData();
   }, []);
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const loadProjectData = async () => {
+    try {
+      setLoading(true);
+      // In a real implementation, you would get the project ID from URL params
+      // For now, we'll load the first project as an example
+      const projects = await getData('/projects');
+      if (projects && projects.length > 0) {
+        const project = projects[0];
+        setProject(project);
+        
+        // Load tasks for this project
+        const projectTasks = await getData(`/tasks?projectId=${project.id}`);
+        setTasks(projectTasks);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load project data:', error);
+      setError("Failed to load project data");
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingTask(true);
     setError("");
 
-    // Simulate creating task
-    setTimeout(() => {
-      const newTask = {
-        id: tasks.length + 1,
+    try {
+      // Create task via API
+      const newTask = await postData('/tasks', {
         title: taskTitle,
         description: taskDescription,
-        status: "Pending",
-        project: project?.name || "Unknown Project"
-      };
+        projectId: project?.id
+      });
       
       setTasks([...tasks, newTask]);
       setTaskTitle("");
       setTaskDescription("");
       setCreatingTask(false);
-    }, 500);
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      setError("Failed to create task");
+      setCreatingTask(false);
+    }
   };
 
   if (loading) {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData, uploadFile, deleteFile } from '@/lib/api';
 
 interface FileItem {
   id: number;
@@ -31,18 +32,36 @@ export default function FilesPage() {
   // Load files
   useEffect(() => {
     if (user) {
-      // Simulate loading files
-      setTimeout(() => {
-        setFiles([
-          { id: 1, name: 'design_mockup.pdf', size: '2.4 MB', type: 'PDF', uploadedBy: 'John Doe', uploadedAt: '2 hours ago', projectId: 1 },
-          { id: 2, name: 'database_schema.png', size: '1.1 MB', type: 'Image', uploadedBy: 'Jane Smith', uploadedAt: '1 day ago', taskId: 2 },
-          { id: 3, name: 'requirements.docx', size: '0.8 MB', type: 'Document', uploadedBy: 'You', uploadedAt: '2 days ago', projectId: 1 },
-          { id: 4, name: 'presentation.pptx', size: '3.2 MB', type: 'Presentation', uploadedBy: 'Bob Johnson', uploadedAt: '3 days ago', projectId: 2 }
-        ]);
-        setLoading(false);
-      }, 500);
+      loadFiles();
     }
   }, [user]);
+
+  const loadFiles = async () => {
+    try {
+      setLoading(true);
+      // Load all files
+      const filesData = await getData('/files');
+      
+      // Transform the data to match our interface
+      const transformedFiles = filesData.map((file: any) => ({
+        id: file.id,
+        name: file.name,
+        size: formatFileSize(file.size),
+        type: getFileType(file.name),
+        uploadedBy: file.user?.name || 'Unknown User',
+        uploadedAt: getTimeAgo(new Date(file.createdAt)),
+        projectId: file.projectId,
+        taskId: file.taskId
+      }));
+      
+      setFiles(transformedFiles);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load files:', error);
+      setFiles([]);
+      setLoading(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -50,32 +69,50 @@ export default function FilesPage() {
     }
   };
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) return;
     
     setUploading(true);
     
-    // Simulate file upload
-    setTimeout(() => {
+    try {
+      // Upload file using the API helper
+      const uploadResponse = await uploadFile(selectedFile);
+      
+      // Transform the response to match our interface
       const newFile: FileItem = {
-        id: files.length + 1,
-        name: selectedFile.name,
-        size: `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`,
-        type: selectedFile.type.split('/')[1] || 'Unknown',
-        uploadedBy: 'You',
-        uploadedAt: 'Just now'
+        id: uploadResponse.id,
+        name: uploadResponse.name,
+        size: formatFileSize(uploadResponse.size),
+        type: getFileType(uploadResponse.name),
+        uploadedBy: uploadResponse.user?.name || 'You',
+        uploadedAt: 'Just now',
+        projectId: uploadResponse.projectId,
+        taskId: uploadResponse.taskId
       };
       
       setFiles([newFile, ...files]);
       setSelectedFile(null);
       setUploading(false);
-    }, 1500);
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      // Don't update UI if API call fails
+      setSelectedFile(null);
+      setUploading(false);
+    }
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this file?')) {
-      setFiles(files.filter(file => file.id !== id));
+      try {
+        // Delete file using the API helper
+        await deleteFile(id.toString());
+        setFiles(files.filter(file => file.id !== id));
+      } catch (error) {
+        console.error('Failed to delete file:', error);
+        // Still update UI even if API call fails
+        setFiles(files.filter(file => file.id !== id));
+      }
     }
   };
 

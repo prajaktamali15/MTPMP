@@ -142,11 +142,11 @@ export class OrganizationsController {
       );
     }
 
-    // Remove the member from the organization by setting their organizationId to null
+    // Remove the member from the organization by setting organizationId to null
     const updatedMember = await this.prisma.user.update({
       where: { id: memberId },
       data: {
-        organizationId: null,
+        organizationId: null, // Explicitly set to null to remove from organization
         role: 'MEMBER', // Reset role to MEMBER when removed from organization
       },
     });

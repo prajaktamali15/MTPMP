@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { getData } from '@/lib/api';
 
 interface SearchResult {
   id: number;
@@ -28,33 +29,58 @@ export default function SearchPage() {
     }
   }, [user, router]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
     
     setLoading(true);
     
-    // Simulate search
-    setTimeout(() => {
-      const mockResults: SearchResult[] = [
-        { id: 1, type: 'project', title: 'Website Redesign', description: 'Complete redesign of company website' },
-        { id: 2, type: 'task', title: 'Design Homepage', description: 'Create wireframes for homepage', project: 'Website Redesign', status: 'In Progress' },
-        { id: 3, type: 'member', title: 'John Doe', description: 'Frontend Developer', role: 'Admin' },
-        { id: 4, type: 'project', title: 'Mobile App', description: 'Development of mobile application' },
-        { id: 5, type: 'task', title: 'Setup Database', description: 'Configure PostgreSQL database', project: 'Mobile App', status: 'Completed' },
-        { id: 6, type: 'member', title: 'Jane Smith', description: 'Backend Developer', role: 'Member' }
-      ];
+    try {
+      // Search across projects, tasks, and members
+      const [projects, tasks, members] = await Promise.all([
+        getData(`/projects?search=${encodeURIComponent(query)}`),
+        getData(`/tasks?search=${encodeURIComponent(query)}`),
+        getData(`/organizations/members?search=${encodeURIComponent(query)}`)
+      ]);
       
-      // Filter results based on query
-      const filteredResults = mockResults.filter(item => 
-        item.title.toLowerCase().includes(query.toLowerCase()) ||
-        item.description.toLowerCase().includes(query.toLowerCase()) ||
-        (item.project && item.project.toLowerCase().includes(query.toLowerCase()))
-      );
+      // Transform projects to search results
+      const projectResults: SearchResult[] = projects.map((project: any) => ({
+        id: project.id,
+        type: 'project',
+        title: project.name,
+        description: project.description || ''
+      }));
       
-      setResults(filteredResults);
+      // Transform tasks to search results
+      const taskResults: SearchResult[] = tasks.map((task: any) => ({
+        id: task.id,
+        type: 'task',
+        title: task.title,
+        description: task.description || '',
+        project: task.project?.name || '',
+        status: task.status
+      }));
+      
+      // Transform members to search results
+      const memberResults: SearchResult[] = members.map((member: any) => ({
+        id: member.id,
+        type: 'member',
+        title: member.name || member.email,
+        description: member.email,
+        role: member.role
+      }));
+      
+      // Combine all results
+      const allResults = [...projectResults, ...taskResults, ...memberResults];
+      
+      setResults(allResults);
       setLoading(false);
-    }, 500);
+    } catch (error) {
+      console.error('Search failed:', error);
+      // Show empty results instead of mock data
+      setResults([]);
+      setLoading(false);
+    }
   };
 
   // Handle unauthenticated state

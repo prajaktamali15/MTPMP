@@ -42,6 +42,7 @@ export class AuthService {
           password: hashed,
           name,
           role: 'MEMBER',
+          organizationId: null,
         },
       });
     }
@@ -75,6 +76,7 @@ export class AuthService {
           name: user.name,
           password: '', // empty for Google
           role: 'MEMBER',
+          organizationId: null,
         },
       });
     }

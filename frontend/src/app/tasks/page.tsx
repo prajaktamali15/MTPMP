@@ -84,13 +84,8 @@ export default function TasksPage() {
     } catch (err: any) {
       console.error('Error loading tasks list:', err);
       setError(err.message || "Failed to load tasks");
-      // Fallback to mock data
-      setTasks([
-        { id: 1, title: 'Design homepage', status: 'In Progress', project: { name: 'Website Redesign' }, description: 'Create wireframes for homepage' },
-        { id: 2, title: 'Setup database', status: 'DONE', project: { name: 'Mobile App' }, description: 'Configure PostgreSQL database' },
-        { id: 3, title: 'Create wireframes', status: 'OPEN', project: { name: 'Website Redesign' }, description: 'Design mockups for all pages' },
-        { id: 4, title: 'Write copy', status: 'OPEN', project: { name: 'Marketing Campaign' }, description: 'Create content for marketing materials' }
-      ]);
+      // Don't use mock data
+      setTasks([]);
     } finally {
       setLoading(false);
     }

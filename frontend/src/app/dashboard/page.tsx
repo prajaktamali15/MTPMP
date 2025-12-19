@@ -48,9 +48,9 @@ export default function DashboardPage() {
       const orgExists = orgs && orgs.length > 0;
       setHasOrg(!!orgExists);
       
-      // If no organization, redirect to create organization page
+      // If no organization, don't redirect automatically - let user decide
       if (!orgExists) {
-        router.push('/org/create');
+        // Just update state, don't redirect
         return;
       }
       

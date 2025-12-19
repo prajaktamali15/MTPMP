@@ -1,5 +1,21 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
+// Function to decode JWT token
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error decoding JWT token:', error);
+    return null;
+  }
+}
+
 // Helper function to get organization ID from localStorage
 export function getOrgId() {
   if (typeof window !== 'undefined') {
@@ -16,6 +32,15 @@ export function getAccessToken() {
   return null;
 }
 
+// Helper function to get user email from JWT token
+export function getUserEmail() {
+  const token = getAccessToken();
+  if (!token) return null;
+  
+  const decoded = parseJwt(token);
+  return decoded?.email || null;
+}
+
 export async function postData(endpoint: string, data: any) {
   // Ensure endpoint starts with /
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -26,6 +51,15 @@ export async function postData(endpoint: string, data: any) {
   const accessToken = getAccessToken();
   
   try {
+    // Log the request for debugging
+    console.log(`Making POST request to: ${url}`);
+    console.log(`Request headers:`, { 
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
+    });
+    console.log(`Request body:`, data);
+    
     const res = await fetch(url, {
       method: 'POST',
       headers: { 
@@ -45,7 +79,12 @@ export async function postData(endpoint: string, data: any) {
     
     return res.json();
   } catch (error) {
-    console.error('Network error:', error);
+    console.error('Network error in POST request to:', url, error);
+    // Check if it's a CORS error or network issue
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.error('This might be a CORS error or the backend server is not running');
+      throw new Error('Unable to connect to the server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }
@@ -60,6 +99,14 @@ export async function getData(endpoint: string) {
   const accessToken = getAccessToken();
   
   try {
+    // Log the request for debugging
+    console.log(`Making GET request to: ${url}`);
+    console.log(`Request headers:`, { 
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
+    });
+    
     const res = await fetch(url, {
       method: 'GET',
       headers: { 
@@ -72,13 +119,19 @@ export async function getData(endpoint: string) {
     
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`Request failed with status ${res.status}:`, errorText);
+      console.error(`GET request failed with status ${res.status}:`, errorText);
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
     
+    console.log(`GET request successful from: ${url}`);
     return res.json();
   } catch (error) {
-    console.error('Network error:', error);
+    console.error('Network error in GET request to:', url, error);
+    // Check if it's a CORS error or network issue
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.error('This might be a CORS error or the backend server is not running');
+      throw new Error('Unable to connect to the server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }
@@ -93,6 +146,15 @@ export async function putData(endpoint: string, data: any) {
   const accessToken = getAccessToken();
   
   try {
+    // Log the request for debugging
+    console.log(`Making PUT request to: ${url}`);
+    console.log(`Request headers:`, { 
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
+    });
+    console.log(`Request body:`, data);
+    
     const res = await fetch(url, {
       method: 'PUT',
       headers: { 
@@ -106,13 +168,19 @@ export async function putData(endpoint: string, data: any) {
     
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`Request failed with status ${res.status}:`, errorText);
+      console.error(`PUT request failed with status ${res.status}:`, errorText);
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
     
+    console.log(`PUT request successful to: ${url}`);
     return res.json();
   } catch (error) {
-    console.error('Network error:', error);
+    console.error('Network error in PUT request to:', url, error);
+    // Check if it's a CORS error or network issue
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.error('This might be a CORS error or the backend server is not running');
+      throw new Error('Unable to connect to the server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }
@@ -127,6 +195,14 @@ export async function deleteData(endpoint: string) {
   const accessToken = getAccessToken();
   
   try {
+    // Log the request for debugging
+    console.log(`Making DELETE request to: ${url}`);
+    console.log(`Request headers:`, { 
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...(!normalizedEndpoint.startsWith('/auth') && orgId && { 'x-org-id': orgId }),
+    });
+    
     const res = await fetch(url, {
       method: 'DELETE',
       headers: { 
@@ -139,13 +215,19 @@ export async function deleteData(endpoint: string) {
     
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`Request failed with status ${res.status}:`, errorText);
+      console.error(`DELETE request failed with status ${res.status}:`, errorText);
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
     
+    console.log(`DELETE request successful to: ${url}`);
     return res.json();
   } catch (error) {
-    console.error('Network error:', error);
+    console.error('Network error in DELETE request to:', url, error);
+    // Check if it's a CORS error or network issue
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.error('This might be a CORS error or the backend server is not running');
+      throw new Error('Unable to connect to the server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }
@@ -171,6 +253,13 @@ export async function uploadFile(file: File, taskId?: string, projectId?: string
   }
   
   try {
+    // Log the request for debugging
+    console.log(`Making file upload request to: ${url}`);
+    console.log(`Upload headers:`, {
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...(orgId && { 'x-org-id': orgId }),
+    });
+    
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -187,9 +276,15 @@ export async function uploadFile(file: File, taskId?: string, projectId?: string
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
     
+    console.log(`File upload successful to: ${url}`);
     return res.json();
   } catch (error) {
-    console.error('File upload error:', error);
+    console.error('Network error in file upload request to:', url, error);
+    // Check if it's a CORS error or network issue
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.error('This might be a CORS error or the backend server is not running');
+      throw new Error('Unable to connect to the server. Please make sure the backend is running.');
+    }
     throw error;
   }
 }
